@@ -47,6 +47,13 @@ const replay = multer({ storage: replaydest });
 const app = express();
 const PORT = 8080;
 
+//TODO: Add more securty (mainly to post)
+//TODO: finnish maps IE duplicating and stuff
+//TODO: Fix crash dummy data
+//TODO: Get tournaments working ???
+//TODO: Get a test server up and runnning
+//TODO: Better logging and error handling IE 500 res if the db fails
+
 /*
 -------------------------------------------------
 ████████╗ █████╗ ██████╗ ██╗     ███████╗███████╗
