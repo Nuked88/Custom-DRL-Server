@@ -7,3 +7,8 @@
 - [dnSpy](https://github.com/dnSpy/dnSpy)
 
 ## Getting Started
+
+Before you start I HIGHLY RECOMMEND BACKING UP YOUR GAME!!! This will make sure that you have something to fall back to if it breaks, and it probably will.
+
+You are going to also need to install some npm packages to run this
+'''npm install express express-rate-limit sqlite3'''
