@@ -1823,36 +1823,6 @@ app.get('/leaderboards/rivals/', (req, res) => {
                 });
             }
         });
-        /*
-        db.get(`SELECT * FROM leaderboard WHERE player_id = ? AND map = ? AND track = ? AND diameter = ? AND drl_official = ?`, [uid, req.query.map, req.query.track, diameter, drlOfficial], (err, row) => {
-            if (err || !row) {
-                console.error("Error fetching leaderboard:", err);
-                res.status(500).json({ success: false });
-                return;
-            } else {
-                jsondata = {
-                    "top": [
-                        {
-                            "player-id": "player_steam_000",
-                            "position": 1,
-                            "username": "AAA",
-                            "profile_name": "YOU or smt",
-                            "score": 60000,
-                            "replayURL": "https://cdn/game/replays/top1"
-                        }
-                    ],
-                    "player": 2,
-                    "rivals": [
-                        row
-                    ],
-                    "past": null
-                }
-                res.status(200).json({
-                    success: true, data: jsondata
-                });
-            }
-        });
-        */
     });
 });
 
@@ -2113,7 +2083,7 @@ app.get('/experience-points/ranking/', (req, res) => {
     const payload = {
         "league": {
             "name": "",
-            "guid": "LG-0"
+            "guid": "LG-1"
         },
         "start-at": "2026-01-01T00:00:00Z",
         "end-at": "2026-01-31T23:59:59Z",
@@ -2187,7 +2157,7 @@ app.get('/experience-points/progression/', (req, res) => {
                         payload["daily-completed-maps"],
                         payload["goal-daily-completed-maps"],
                         JSON.stringify(payload.prizes),
-                        "LG-0"
+                        "LG-1"
                     );
                     console.log("Inserted default progression for UID:", uid);
                 } else {
@@ -2380,7 +2350,6 @@ app.get('/drones/', (req, res) => {
     let params = [];
 
     if (req.query["is-public"] != null) {
-        // only filter if is-public is specified
         const isPublic = req.query["is-public"] === "true" ? "true" : "false";
         sql += " WHERE is_public = ?";
         params.push(isPublic);
@@ -2517,8 +2486,6 @@ function decryptDRL(token, keyString, ivString) {
     const decryptedText = decrypted.toString('utf8');
     return JSON.parse(decryptedText);
 }
-
-//app.use(express.json());
 
 app.listen(PORT, () => {
     console.log(`Server is running on [http://localhost:${PORT}](http://localhost:${PORT})`);
