@@ -58,7 +58,6 @@ app.use(rateLimit({
 //TODO: finnish maps IE duplicating and stuff
 //TODO: Fix crash dummy data
 //TODO: Get tournaments working ???
-//TODO: Get a test server up and runnning
 //TODO: Better logging and error handling IE 500 res if the db fails
 //TODO: Make it look better
 
@@ -283,74 +282,79 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /maps/ via POST")
     db.serialize(() => {
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            }
-            const uid = row.uid
-            let payload = {
-                "success": true,
-                "message": null,
-                "token": null,
-                "webtoken": null,
-                "encoded": false,
-                "data": {
-                    "pagging": {
-                        "page": 1,
-                        "page-total": 1,
-                        "total": 1,
-                        "previous-page-url": null,
-                        "next-page-url": null
-                    },
-                    "data": [req.body]
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
+                const uid = row.uid
+                let payload = {
+                    "success": true,
+                    "message": null,
+                    "token": null,
+                    "webtoken": null,
+                    "encoded": false,
+                    "data": {
+                        "pagging": {
+                            "page": 1,
+                            "page-total": 1,
+                            "total": 1,
+                            "previous-page-url": null,
+                            "next-page-url": null
+                        },
+                        "data": [req.body]
+                    }
                 }
-            }
-            fs.writeFile('tracks/' + req.body.guid + '.cmp', JSON.stringify(payload), err => {
-                if (err) {
-                    console.error(err);
-                } else {
-                }
-            });
-            db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
-                let jsondata = JSON.parse(row.json);
-                let root = {
-                    "id": req.body.root.id,
-                    "children": [],
-                    "type": req.body.root.type,
-                    "name": "$root"
-                }
-                const stmt = db.prepare(
-                    `INSERT INTO communitytracks (guid, root, prefs, map_dirty, map_title, map_mode_type, map_id, map_stats_triangle_count, map_stats_object_count, is_race_allowed, player_id, profile_name, full_track_url, map_difficulty, map_lighting, is_public, allow_copy, cm_collectable_count, map_thumb) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                fs.writeFile('tracks/' + req.body.guid + '.cmp', JSON.stringify(payload), err => {
+                    if (err) {
+                        console.error(err);
+                    } else {
+                    }
+                });
+                db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
+                    let jsondata = JSON.parse(row.json);
+                    let root = {
+                        "id": req.body.root.id,
+                        "children": [],
+                        "type": req.body.root.type,
+                        "name": "$root"
+                    }
+                    const stmt = db.prepare(
+                        `INSERT INTO communitytracks (guid, root, prefs, map_dirty, map_title, map_mode_type, map_id, map_stats_triangle_count, map_stats_object_count, is_race_allowed, player_id, profile_name, full_track_url, map_difficulty, map_lighting, is_public, allow_copy, cm_collectable_count, map_thumb) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(guid) DO UPDATE SET root = excluded.root, prefs = excluded.prefs, map_title = excluded.map_title, map_stats_triangle_count = excluded.map_stats_triangle_count, map_stats_object_count = excluded.map_stats_object_count, is_race_allowed = excluded.is_race_allowed, full_track_url = excluded.full_track_url, map_difficulty = excluded.map_difficulty, map_lighting = excluded.map_lighting, is_public = excluded.is_public, allow_copy = excluded.allow_copy, cm_collectable_count = excluded.cm_collectable_count, map_thumb = excluded.map_thumb;`
-                );
+                    );
 
-                stmt.run(
-                    req.body.guid,
-                    root,
-                    req.body.prefs,
-                    req.body["map-dirty"],
-                    req.body["map-title"],
-                    req.body["map-mode-type"],
-                    req.body["map-id"],
-                    req.body["map-stats-triangle-count"],
-                    req.body["map-stats-object-count"],
-                    req.body["is-race-allowed"],
-                    uid,
-                    jsondata["profile-name"],
-                    url + `/tracks/${req.body.guid}`,
-                    req.body["map-difficulty"],
-                    req.body["map-lighting"],
-                    req.body["is-public"],
-                    req.body["allow-copy"],
-                    req.body["cm-collectable-count"],
-                    req.body["map-thumb"]
-                );
+                    stmt.run(
+                        req.body.guid,
+                        root,
+                        req.body.prefs,
+                        req.body["map-dirty"],
+                        req.body["map-title"],
+                        req.body["map-mode-type"],
+                        req.body["map-id"],
+                        req.body["map-stats-triangle-count"],
+                        req.body["map-stats-object-count"],
+                        req.body["is-race-allowed"],
+                        uid,
+                        jsondata["profile-name"],
+                        url + `/tracks/${req.body.guid}`,
+                        req.body["map-difficulty"],
+                        req.body["map-lighting"],
+                        req.body["is-public"],
+                        req.body["allow-copy"],
+                        req.body["cm-collectable-count"],
+                        req.body["map-thumb"]
+                    );
 
-                stmt.finalize();
-                res.status(200).json({ success: true, data: req.body });
-            });
+                    stmt.finalize();
+                    res.status(200).json({ success: true, data: req.body });
+                });
+            }
         });
     });
 })
@@ -431,55 +435,60 @@ app.get('/maps/user/updated/', (req, res) => {
             console.error("Error fetching UID:", err);
             res.status(404).json({ success: false });
             return;
-        }
-        const uid = row.uid
-        db.all(`SELECT * FROM communitytracks WHERE player_id = ?`, [], (err, row) => {
-            if (err) {
-                console.error("Error fetching community tracks:", err);
-            }
-            for (let i = 0; i < row.length; i++) {
-                let data = {
-                    guid: row[i].guid,
-                    root: row[i].root,
-                    prefs: row[i].prefs,
-                    "full-track-url": row[i].full_track_url,
-                    "allow-copy": row[i].allow_copy ? true : false,
-                    "base-assets-enabled": false,
-                    "exclusive-by-platform": [],
-                    "is-race-allowed": row[i].is_race_allowed,
-                    "is-public": row[i].is_public ? true : false,
-                    "is-public-for-drlpilots": false,
-                    "is-drl-official": true,
-                    "is-featured": false,
-                    "is-multigp": false,
-                    "is-tryouts": false,
-                    "is-virtual-season": false,
-                    "map-category": "MapCommon",
-                    "map-difficulty": 3,
-                    "map-distance": 641.2644,
-                    "map-dirty": true,
-                    "map-lighting": row[i].map_lighting,
-                    "map-laps": 2,
-                    "map-stats-triangle-count": row[i].map_stats_triangle_count,
-                    "map-stats-object-count": 1113,
-                    "prefs-auto-save": true,
-                    "track-id": "freestyle",
-                    "xp-value": 0,
-                    "xp-min-time": 0,
-                    "cm-collectable-count": 0,
-                    "collaborators": [],
-                    "map-mode-type": row[i].map_mode_type,
-                    "map-id": row[i].map_id,
-                    "map-title": row[i].map_title,
-                    "map-thumb": row[i].map_thumb,
-                    "avatar": "https://avatars.steamstatic.com/6d6ccc63d22e35f262daf4b872212ac63b8eb722_full.jpg",
-                    "player-id": row[i].player_id,
-                    "profile-name": row[i].profile_name,
+        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            console.error("Error fetching UID: Token expired");
+            res.status(401).json({ success: false });
+            return;
+        } else {
+            const uid = row.uid
+            db.all(`SELECT * FROM communitytracks WHERE player_id = ?`, [], (err, row) => {
+                if (err) {
+                    console.error("Error fetching community tracks:", err);
                 }
-                payload.push(data);
-            }
-            res.status(200).json({ success: true, data: { data: payload, "pagging": { "page": req.query.page, "page-total": Math.ceil(payload.length / req.query.limit) }, success: true } });
-        });
+                for (let i = 0; i < row.length; i++) {
+                    let data = {
+                        guid: row[i].guid,
+                        root: row[i].root,
+                        prefs: row[i].prefs,
+                        "full-track-url": row[i].full_track_url,
+                        "allow-copy": row[i].allow_copy ? true : false,
+                        "base-assets-enabled": false,
+                        "exclusive-by-platform": [],
+                        "is-race-allowed": row[i].is_race_allowed,
+                        "is-public": row[i].is_public ? true : false,
+                        "is-public-for-drlpilots": false,
+                        "is-drl-official": true,
+                        "is-featured": false,
+                        "is-multigp": false,
+                        "is-tryouts": false,
+                        "is-virtual-season": false,
+                        "map-category": "MapCommon",
+                        "map-difficulty": 3,
+                        "map-distance": 641.2644,
+                        "map-dirty": true,
+                        "map-lighting": row[i].map_lighting,
+                        "map-laps": 2,
+                        "map-stats-triangle-count": row[i].map_stats_triangle_count,
+                        "map-stats-object-count": 1113,
+                        "prefs-auto-save": true,
+                        "track-id": "freestyle",
+                        "xp-value": 0,
+                        "xp-min-time": 0,
+                        "cm-collectable-count": 0,
+                        "collaborators": [],
+                        "map-mode-type": row[i].map_mode_type,
+                        "map-id": row[i].map_id,
+                        "map-title": row[i].map_title,
+                        "map-thumb": row[i].map_thumb,
+                        "avatar": row[i].avatar,
+                        "player-id": row[i].player_id,
+                        "profile-name": row[i].profile_name,
+                    }
+                    payload.push(data);
+                }
+                res.status(200).json({ success: true, data: { data: payload, "pagging": { "page": req.query.page, "page-total": Math.ceil(payload.length / req.query.limit) }, success: true } });
+            });
+        }
     });
 })
 
@@ -503,32 +512,44 @@ app.get('/maps/:guid/remove/', (req, res) => {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            }
-            const uid = row.uid;
-            db.get(`SELECT player_id FROM communitytracks WHERE guid = ?`, [req.params.guid], (err, row) => {
-                if (err || !row) {
-                    console.error("Error fetching drone:", err);
-                    res.status(404).json({ success: false });
-                    return;
-                } else {
-                    if (row.player_id == uid) {
-                        try {
-                            fs.unlinkSync(filePath);
-                            console.log('File deleted synchronously successfully');
-                        } catch (err) {
-                            console.error('Error deleting file synchronously:', err);
-                        }
-                        db.run(`DELETE FROM communitytracks WHERE guid = ? AND player_id = ?`, [req.params.guid, uid], function (err) {
-                            if (err) {
-                                console.error("Error deleting community track:", err);
-                            } else {
-                                console.log(`Deleted ${this.changes} row(s) from community tracks table.`);
-                                res.status(200).json({ success: true });
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
+                const uid = row.uid;
+                db.get(`SELECT player_id FROM communitytracks WHERE guid = ?`, [req.params.guid], (err, row) => {
+                    if (err || !row) {
+                        console.error("Error fetching drone:", err);
+                        res.status(500).json({ success: false });
+                        return;
+                    } else {
+                        if (row.player_id == uid) {
+                            try {
+                                fs.unlinkSync(filePath);
+                                console.log('File deleted synchronously successfully');
+                            } catch (err) {
+                                console.error('Error deleting file synchronously:', err);
+                                res.status(500).json({ success: false });
+                                return;
                             }
-                        });
+                            db.run(`DELETE FROM communitytracks WHERE guid = ? AND player_id = ?`, [req.params.guid, uid], function (err) {
+                                if (err) {
+                                    console.error("Error deleting community track:", err);
+                                    res.status(500).json({ success: false });
+                                    return;
+                                } else {
+                                    console.log(`Deleted ${this.changes} row(s) from community tracks table.`);
+                                    res.status(200).json({ success: true });
+                                }
+                            });
+                        } else {
+                            res.status(403).json({ success: false });
+                            return;
+                        }
                     }
-                }
-            });
+                });
+            }
         });
     });
 });
@@ -544,12 +565,78 @@ app.get('/maps/:guid', (req, res) => {
             console.error("Error fetching UID:", err);
             res.status(404).json({ success: false });
             return;
+        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            console.error("Error fetching UID: Token expired");
+            res.status(401).json({ success: false });
+            return;
+        } else {
+            const uid = row.uid
+            db.all(`SELECT * FROM communitytracks WHERE guid = ?`, [guid], (err, row) => {
+                if (err) {
+                    console.error("Error fetching community tracks:", err);
+                    res.status(500).json({ success: false });
+                    return
+                } else {
+                    for (let i = 0; i < row.length; i++) {
+                        let data = {
+                            guid: row[i].guid,
+                            root: row[i].root,
+                            prefs: row[i].prefs,
+                            "full-track-url": row[i].full_track_url,
+                            "allow-copy": row[i].allow_copy ? true : false,
+                            "base-assets-enabled": false,
+                            "exclusive-by-platform": [],
+                            "is-race-allowed": row[i].is_race_allowed,
+                            "is-public": row[i].is_public ? true : false,
+                            "is-public-for-drlpilots": false,
+                            "is-drl-official": true,
+                            "is-featured": false,
+                            "is-multigp": false,
+                            "is-tryouts": false,
+                            "is-virtual-season": false,
+                            "map-category": "MapCommon",
+                            "map-difficulty": 3,
+                            "map-distance": 641.2644,
+                            "map-dirty": true,
+                            "map-lighting": row[i].map_lighting,
+                            "map-laps": 2,
+                            "map-stats-triangle-count": row[i].map_stats_triangle_count,
+                            "map-stats-object-count": 1113,
+                            "prefs-auto-save": true,
+                            "track-id": "freestyle",
+                            "xp-value": 0,
+                            "xp-min-time": 0,
+                            "cm-collectable-count": 0,
+                            "collaborators": [],
+                            "map-mode-type": row[i].map_mode_type,
+                            "map-id": row[i].map_id,
+                            "map-title": row[i].map_title,
+                            "map-thumb": row[i].map_thumb,
+                            "avatar": row[i].avatar,
+                            "player-id": row[i].player_id,
+                            "profile-name": row[i].profile_name,
+                        }
+                        for (let E = 0; E < row[i].root.length; E++) {
+                            console.log(row[i].root[E])
+                        }
+                        payload.push(data);
+                    }
+                    res.status(200).json({ success: true, data: { data: payload, "pagging": { "page": 1, "page-total": 1 }, success: true } });
+                }
+            });
         }
-        const uid = row.uid
-        db.all(`SELECT * FROM communitytracks WHERE guid = ?`, [guid], (err, row) => {
-            if (err) {
-                console.error("Error fetching community tracks:", err);
-            }
+    });
+});
+
+app.get('/maps/', (req, res) => {
+    console.log("req sent to /maps/ headers are: ", req.headers);
+    let payload = Array.isArray(Ctracks)
+        ? [...Ctracks]
+        : [];
+    db.all(`SELECT * FROM communitytracks`, (err, row) => {
+        if (err) {
+            console.error("Error fetching community tracks:", err);
+        } else {
             for (let i = 0; i < row.length; i++) {
                 let data = {
                     guid: row[i].guid,
@@ -568,8 +655,8 @@ app.get('/maps/:guid', (req, res) => {
                     "is-tryouts": false,
                     "is-virtual-season": false,
                     "map-category": "MapCommon",
-                    "map-difficulty": 3,
-                    "map-distance": 641.2644,
+                    "map-difficulty": row[i].map_difficulty,
+                    "map-distance": row[i].map_distance,
                     "map-dirty": true,
                     "map-lighting": row[i].map_lighting,
                     "map-laps": 2,
@@ -579,77 +666,18 @@ app.get('/maps/:guid', (req, res) => {
                     "track-id": "freestyle",
                     "xp-value": 0,
                     "xp-min-time": 0,
-                    "cm-collectable-count": 0,
+                    "cm-collectable-count": row[i].cm_collectable_count,
                     "collaborators": [],
                     "map-mode-type": row[i].map_mode_type,
                     "map-id": row[i].map_id,
                     "map-title": row[i].map_title,
                     "map-thumb": row[i].map_thumb,
-                    "avatar": "https://avatars.steamstatic.com/6d6ccc63d22e35f262daf4b872212ac63b8eb722_full.jpg",
+                    "avatar": row[i].avatar,
                     "player-id": row[i].player_id,
                     "profile-name": row[i].profile_name,
                 }
-                for (let E = 0; E < row[i].root.length; E++) {
-                    console.log(row[i].root[E])
-                }
-
                 payload.push(data);
             }
-            console.log({ success: true, data: { data: payload, "pagging": { "page": 1, "page-total": 1 }, success: true } })
-            res.status(200).json({ success: true, data: { data: payload, "pagging": { "page": 1, "page-total": 1 }, success: true } });
-        });
-    });
-});
-
-app.get('/maps/', (req, res) => {
-    console.log("req sent to /maps/ headers are: ", req.headers);
-    let payload = Array.isArray(Ctracks)
-        ? [...Ctracks]
-        : [];
-    db.all(`SELECT * FROM communitytracks`, (err, row) => {
-        if (err) {
-            console.error("Error fetching community tracks:", err);
-        }
-        for (let i = 0; i < row.length; i++) {
-            let data = {
-                guid: row[i].guid,
-                root: row[i].root,
-                prefs: row[i].prefs,
-                "full-track-url": row[i].full_track_url,
-                "allow-copy": row[i].allow_copy ? true : false,
-                "base-assets-enabled": false,
-                "exclusive-by-platform": [],
-                "is-race-allowed": row[i].is_race_allowed,
-                "is-public": row[i].is_public ? true : false,
-                "is-public-for-drlpilots": false,
-                "is-drl-official": true,
-                "is-featured": false,
-                "is-multigp": false,
-                "is-tryouts": false,
-                "is-virtual-season": false,
-                "map-category": "MapCommon",
-                "map-difficulty": row[i].map_difficulty,
-                "map-distance": row[i].map_distance,
-                "map-dirty": true,
-                "map-lighting": row[i].map_lighting,
-                "map-laps": 2,
-                "map-stats-triangle-count": row[i].map_stats_triangle_count,
-                "map-stats-object-count": 1113,
-                "prefs-auto-save": true,
-                "track-id": "freestyle",
-                "xp-value": 0,
-                "xp-min-time": 0,
-                "cm-collectable-count": row[i].cm_collectable_count,
-                "collaborators": [],
-                "map-mode-type": row[i].map_mode_type,
-                "map-id": row[i].map_id,
-                "map-title": row[i].map_title,
-                "map-thumb": row[i].map_thumb,
-                "avatar": "https://avatars.steamstatic.com/6d6ccc63d22e35f262daf4b872212ac63b8eb722_full.jpg",
-                "player-id": row[i].player_id,
-                "profile-name": row[i].profile_name,
-            }
-            payload.push(data);
         }
         res.status(200).json({ success: true, data: { data: payload, "pagging": { "page": req.query.page, "page-total": Math.ceil(payload.length / req.query.limit) }, success: true } });
     });
@@ -687,33 +715,37 @@ app.post('/replay/', replay.single('replay-data'), (req, res) => {
             console.error("Error fetching UID:", err);
             res.status(404).json({ success: false });
             return;
-        }
-        const uid = row.uid
-        db.run(
-            `
-    UPDATE leaderboard
-    SET replay_url = ?
-    WHERE rowid = (
-        SELECT rowid
-        FROM leaderboard
-        WHERE player_id = ?
-        ORDER BY updated_at DESC
-        LIMIT 1
-    )
-    `,
-            [ url + '/replay/' + uid + '/' + req.file.filename, uid],
-            function (err) {
+        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            console.error("Error fetching UID: Token expired");
+            res.status(401).json({ success: false });
+            return;
+        } else {
+            const uid = row.uid
+            db.run(
+                `UPDATE leaderboard
+                    SET replay_url = ?
+                    WHERE rowid = (
+                        SELECT rowid
+                        FROM leaderboard
+                        WHERE player_id = ?
+                        ORDER BY updated_at DESC
+                        LIMIT 1
+                    )`,
+                [url + '/replay/' + uid + '/' + req.file.filename, uid],
+                function (err) {
 
-                if (err) {
-                    console.error(err);
-                    return;
+                    if (err) {
+                        console.error(err);
+                        res.status(500).json({ success: false });
+                        return;
+                    }
+
+                    console.log('Rows updated:', this.changes);
+                    res.status(200).json({ success: true });
                 }
-
-                console.log('Rows updated:', this.changes);
-            }
-        );
+            );
+        }
     });
-    res.status(200).json({ success: true });
 });
 
 
@@ -836,23 +868,33 @@ app.get('/social/profile/', (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
     db.serialize(() => {
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
-            uid = row.uid
-            db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
-                jsondata = JSON.parse(row.json);
-                let payload = [{
-                    "platform-id": "epic-id",
-                    "player-id": row.uid,
-                    "profile-color": jsondata["profile-color"],
-                    "profile-rank": 1,
-                    "profile-name": jsondata["profile-name"],
-                    "username": jsondata["profile-name"],
-                    "has-game": true,
-                }];
-                const base64Data = Buffer.from(JSON.stringify(payload)).toString('base64');
-                res.status(200).json({
-                    success: true, data: base64Data
+            if (err || !row) {
+                console.error("Error fetching UID:", err);
+                res.status(404).json({ success: false });
+                return;
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
+                const uid = row.uid
+                db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
+                    jsondata = JSON.parse(row.json);
+                    let payload = [{
+                        "platform-id": "epic-id",
+                        "player-id": row.uid,
+                        "profile-color": jsondata["profile-color"],
+                        "profile-rank": 1,
+                        "profile-name": jsondata["profile-name"],
+                        "username": jsondata["profile-name"],
+                        "has-game": true,
+                    }];
+                    const base64Data = Buffer.from(JSON.stringify(payload)).toString('base64');
+                    res.status(200).json({
+                        success: true, data: base64Data
+                    });
                 });
-            });
+            }
         });
     });
 })
@@ -873,33 +915,37 @@ app.get('/state/', (req, res) => {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            }
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
 
-            const uid = row.uid;
-            console.log("UID:", uid);
+                const uid = row.uid;
+                console.log("UID:", uid);
 
-            db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
-                if (err) {
-                    console.error("Error fetching JSON:", err);
-                    res.status(500).json({ success: false });
-                    return;
-                }
-
-                if (!row) {
-                    console.log("No player state found for UID:", uid);
-                    jsondata = { lastState: null };
-                    const base64Data = Buffer.from(JSON.stringify(jsondata)).toString('base64');
-                    res.status(200).json({ success: true, data: base64Data });
-                } else {
-                    try {
-                        jsondata = JSON.parse(row.json);
-                    } catch {
-                        jsondata = row.json;
+                db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
+                    if (err) {
+                        console.error("Error fetching JSON:", err);
+                        res.status(500).json({ success: false });
+                        return;
+                    } else if (!row) {
+                        console.log("No player state found for UID:", uid);
+                        jsondata = { lastState: null };
+                        const base64Data = Buffer.from(JSON.stringify(jsondata)).toString('base64');
+                        res.status(200).json({ success: true, data: base64Data });
+                        return;
+                    } else {
+                        try {
+                            jsondata = JSON.parse(row.json);
+                        } catch {
+                            jsondata = row.json;
+                        }
+                        const base64Data = Buffer.from(JSON.stringify(jsondata)).toString('base64');
+                        res.status(200).json({ success: true, data: base64Data });
                     }
-                    const base64Data = Buffer.from(JSON.stringify(jsondata)).toString('base64');
-                    res.status(200).json({ success: true, data: base64Data });
-                }
-            });
+                });
+            }
         });
     });
 })
@@ -918,53 +964,57 @@ app.post('/state/', (req, res) => {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            }
-            const stmt1 = db.prepare(
-                `INSERT INTO user (uid, name) VALUES (?, ?)
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
+                const stmt1 = db.prepare(
+                    `INSERT INTO user (uid, name) VALUES (?, ?)
                     ON CONFLICT(uid) DO UPDATE SET name = excluded.name;`
-            );
-            const uid = row.uid;
-            stmt1.run(uid, row.name, (err) => { });
-            parsed['player-id'] = row.uid;
-
-
-            db.serialize(() => {
-                const stmt = db.prepare(
-                    `INSERT INTO playerstate (uid, json) VALUES (?, ?)
-                    ON CONFLICT(uid) DO UPDATE SET json = excluded.json;`
                 );
-
-                stmt.run(uid, JSON.stringify(parsed), (err) => {
-                    if (err) {
-                        console.error("SQLite insert failed:", err);
-                        return;
-                    }
+                const uid = row.uid;
+                stmt1.run(uid, row.name, (err) => { });
+                parsed['player-id'] = row.uid;
 
 
-                    db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
+                db.serialize(() => {
+                    const stmt = db.prepare(
+                        `INSERT INTO playerstate (uid, json) VALUES (?, ?)
+                    ON CONFLICT(uid) DO UPDATE SET json = excluded.json;`
+                    );
+
+                    stmt.run(uid, JSON.stringify(parsed), (err) => {
                         if (err) {
-                            console.error("Error fetching JSON:", err);
+                            console.error("SQLite insert failed:", err);
+                            res.status(500).json({ success: false });
                             return;
                         }
-
-                        if (!row) {
-                        } else {
-                            let jsondata;
-                            try {
-                                jsondata = JSON.parse(row.json);
-                            } catch {
-                                jsondata = row.json;
+                        db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
+                            if (err) {
+                                console.error("Error fetching JSON:", err);
+                                res.status(500).json({ success: false });
+                                return;
                             }
-                        }
 
-                        stmt.finalize(err => {
-                            if (err) console.error("Error finalizing statement:", err);
+                            if (!row) {
+                            } else {
+                                let jsondata;
+                                try {
+                                    jsondata = JSON.parse(row.json);
+                                } catch {
+                                    jsondata = row.json;
+                                }
+                            }
+
+                            stmt.finalize(err => {
+                                if (err) console.error("Error finalizing statement:", err);
+                            });
                         });
                     });
                 });
-            });
-
-            res.status(200).json({ success: true });
+                res.status(200).json({ success: true });
+            }
         });
     });
 });
@@ -1089,7 +1139,7 @@ app.get('/leaderboards/user/', (req, res) => {
     db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error uid FROM user:", err);
-            res.status(500).json({ success: false });
+            res.status(400).json({ success: false });
             return;
         }
 
@@ -1129,25 +1179,30 @@ app.post('/leaderboards/user/reset/', express.urlencoded({ extended: true }), (r
             console.error("Error uid FROM user:", err);
             res.status(500).json({ success: false });
             return;
-        }
-        const uid = row.uid;
-        fs.readdir("replay/" + uid, (err, files) => {
-            if (err) throw err;
+        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            console.error("Error fetching UID: Token expired");
+            res.status(401).json({ success: false });
+            return;
+        } else {
+            const uid = row.uid;
+            fs.readdir("replay/" + uid, (err, files) => {
+                if (err) throw err;
 
-            for (const file of files) {
-                fs.unlink(path.join("replay/" + uid, file), (err) => {
-                    if (err) throw err;
-                });
-            }
-        });
-        db.run(`DELETE FROM leaderboard WHERE player_id = ?`, [uid], function (err) {
-            if (err) {
-                res.status(500).json({ success: false });
-            } else {
-                res.status(200).json({ success: true });
-                console.log(`Deleted ${this.changes} leaderboard entries for user ${uid}`);
-            }
-        });
+                for (const file of files) {
+                    fs.unlink(path.join("replay/" + uid, file), (err) => {
+                        if (err) throw err;
+                    });
+                }
+            });
+            db.run(`DELETE FROM leaderboard WHERE player_id = ?`, [uid], function (err) {
+                if (err) {
+                    res.status(500).json({ success: false });
+                } else {
+                    res.status(200).json({ success: true });
+                    console.log(`Deleted ${this.changes} leaderboard entries for user ${uid}`);
+                }
+            });
+        }
     });
 });
 
@@ -1166,18 +1221,23 @@ app.post('/leaderboards/user/reset/track/', express.urlencoded({ extended: true 
     db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error uid FROM user:", err);
-            res.status(500).json({ success: false });
+            res.status(404).json({ success: false });
             return;
+        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            console.error("Error fetching UID: Token expired");
+            res.status(401).json({ success: false });
+            return;
+        } else {
+            const uid = row.uid;
+            db.run(`DELETE FROM leaderboard WHERE player_id = ? AND map = ?` + sql, args, function (err) {
+                if (err) {
+                    res.status(500).json({ success: false });
+                } else {
+                    res.status(200).json({ success: true });
+                    console.log(`Deleted ${this.changes} leaderboard entries for user ${uid}`);
+                }
+            });
         }
-        const uid = row.uid;
-        db.run(`DELETE FROM leaderboard WHERE player_id = ? AND map = ?` + sql, args, function (err) {
-            if (err) {
-                res.status(500).json({ success: false });
-            } else {
-                res.status(200).json({ success: true });
-                console.log(`Deleted ${this.changes} leaderboard entries for user ${uid}`);
-            }
-        });
     });
 });
 
@@ -1199,215 +1259,220 @@ app.post('/leaderboards/', (req, res) => {
                     console.error("Error uid FROM user:", err);
                     res.status(500).json({ success: false });
                     return;
-                }
-                const uid = row.uid;
-                const diameter = Number(parsed[0].diameter);
-                if (parsed[0]['is-custom-map'] == true) {
-                    query = `WHERE player_id = ? AND map = ? AND track = ? AND diameter = ? AND drl_official = ? AND custom_map = ? `
-                    inputs = [uid, parsed[0].map, parsed[0].track, diameter, parsed[0]["drl-official"], parsed[0]['custom-map']]
+                } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                    console.error("Error fetching UID: Token expired");
+                    res.status(401).json({ success: false });
+                    return;
                 } else {
-                    query = `WHERE player_id = ? AND map = ? AND track = ? AND diameter = ? AND drl_official = ? `
-                    inputs = [uid, parsed[0].map, parsed[0].track, diameter, parsed[0]["drl-official"]]
-                }
-                console.log(`SELECT * FROM leaderboard ${query} `, inputs)
-                db.get(`SELECT * FROM leaderboard ${query}`, inputs, (err, row) => {
-                    if (err || !row) {
-                        console.error("Error fetching leaderboard:", err);
+                    const uid = row.uid;
+                    const diameter = Number(parsed[0].diameter);
+                    if (parsed[0]['is-custom-map'] == true) {
+                        query = `WHERE player_id = ? AND map = ? AND track = ? AND diameter = ? AND drl_official = ? AND custom_map = ? `
+                        inputs = [uid, parsed[0].map, parsed[0].track, diameter, parsed[0]["drl-official"], parsed[0]['custom-map']]
+                    } else {
+                        query = `WHERE player_id = ? AND map = ? AND track = ? AND diameter = ? AND drl_official = ? `
+                        inputs = [uid, parsed[0].map, parsed[0].track, diameter, parsed[0]["drl-official"]]
                     }
-                    const isNewRow = !row;
-                    const isBetterScore =
-                        row && row.score != null && parsed[0].score != null
-                            ? parsed[0].score < row.score
-                            : true;
-                    if (isBetterScore || isNewRow) {
-                        if (!isNewRow) {
-                            let rep = row.replay_url
-                            let prefix = url + `/replay/${uid}/`
-                            if (rep.startsWith(prefix)) {
-                                oldReplayfile = rep.substring(prefix.length)
-                                fs.unlink(path.join("replay", uid, oldReplayfile), (err) => {
-                                    if (err) {
-                                        console.error("Error deleting old replay file:", err);
-                                    }
-                                });
-                            }
+                    console.log(`SELECT * FROM leaderboard ${query} `, inputs)
+                    db.get(`SELECT * FROM leaderboard ${query}`, inputs, (err, row) => {
+                        if (err || !row) {
+                            console.error("Error fetching leaderboard:", err);
                         }
-                        db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
-                            if (err) {
-                                console.error("Error fetching JSON:", err);
+                        const isNewRow = !row;
+                        const isBetterScore =
+                            row && row.score != null && parsed[0].score != null
+                                ? parsed[0].score < row.score
+                                : true;
+                        if (isBetterScore || isNewRow) {
+                            if (!isNewRow) {
+                                let rep = row.replay_url
+                                let prefix = url + `/replay/${uid}/`
+                                if (rep.startsWith(prefix)) {
+                                    oldReplayfile = rep.substring(prefix.length)
+                                    fs.unlink(path.join("replay", uid, oldReplayfile), (err) => {
+                                        if (err) {
+                                            console.error("Error deleting old replay file:", err);
+                                        }
+                                    });
+                                }
+                            }
+                            db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
+                                if (err) {
+                                    console.error("Error fetching JSON:", err);
+                                    res.status(500).json({ success: false });
+                                    return;
+                                }
+
+                                if (!row) {
+                                } else {
+                                    jsondata = JSON.parse(row.json);
+                                }
+
+
+
+                                const stmt = db.prepare(
+                                    `INSERT INTO leaderboard (player_id, profile_name, profile_color, map, track, is_custom_map, custom_map, mission, group_id, replay_url, game_type, diameter, drone_name, drone_thumb, multiplayer, multiplayer_room_id, multiplayer_room_size, multiplayer_player_id, multiplayer_master_id, multiplayer_player_position, flag_url, score_type, match_id, tryouts, battery_resistance, controller_type, score, score_check, score_double_check, score_cheat, score_cheat_ratio, score_cheat_samples, crash_count, top_speed, time_in_first, lap_times, gate_times, fastest_lap, slowest_lap, total_distance, order_col, high_score, race_id, limit_col, heat, custom_physics, drl_official, drl_pilot_mode, drone_guid, drone_rig, drone_hash, updated_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                                ON CONFLICT(player_id, map, track, diameter, drl_official, custom_map) DO UPDATE SET replay_url = excluded.replay_url, score = excluded.score, score_check = excluded.score_check, score_double_check = excluded.score_double_check, controller_type = excluded.controller_type, score_cheat = excluded.score_cheat, score_cheat_ratio = excluded.score_cheat_ratio, score_cheat_samples = excluded.score_cheat_samples, crash_count = excluded.crash_count, top_speed = excluded.top_speed, lap_times = excluded.lap_times, gate_times = excluded.gate_times, fastest_lap = excluded.fastest_lap, slowest_lap = excluded.slowest_lap, total_distance = excluded.total_distance, race_id = excluded.race_id, drone_name = excluded.drone_name, drone_guid = excluded.drone_guid, updated_at = datetime('now');`
+                                );
+                                stmt.run(
+                                    uid,
+                                    jsondata['profile-name'],
+                                    jsondata['profile-color'],
+                                    parsed[0].map ? parsed[0].map : "unknown",
+                                    parsed[0].track ? parsed[0].track : "unknown",
+                                    parsed[0]['is-custom-map'] ? parsed[0]['is-custom-map'] : true,
+                                    parsed[0]['custom-map'] ? parsed[0]['custom-map'] : null,
+                                    parsed[0]['mission'] ? parsed[0]['mission'] : null,
+                                    parsed[0]['group-id'] ? parsed[0]['group-id'] : null,
+                                    parsed[0]['replay-url'] ? parsed[0]['replay-url'] : null,
+                                    parsed[0]['game-type'] ? parsed[0]['game-type'] : null,
+                                    parsed[0]['diameter'] ? parsed[0]['diameter'] : 7,
+                                    parsed[0]['drone-name'] ? parsed[0]['drone-name'] : null,
+                                    parsed[0]['drone-thumb'] ? parsed[0]['drone-thumb'] : null,
+                                    parsed[0]['multiplayer'] ? parsed[0]['multiplayer'] : null,
+                                    parsed[0]['multiplayer-room-id'] ? parsed[0]['multiplayer-room-id'] : null,
+                                    parsed[0]['multiplayer-room-size'] ? parsed[0]['multiplayer-room-size'] : null,
+                                    parsed[0]['multiplayer-player-id'] ? parsed[0]['multiplayer-player-id'] : null,
+                                    parsed[0]['multiplayer-master-id'] ? parsed[0]['multiplayer-master-id'] : null,
+                                    parsed[0]['multiplayer-player-position'] ? parsed[0]['multiplayer-player-position'] : null,
+                                    parsed[0]['flag-url'] ? parsed[0]['flag-url'] : null,
+                                    parsed[0]['score-type'] ? parsed[0]['score-type'] : null,
+                                    parsed[0]['match-id'] ? parsed[0]['match-id'] : null,
+                                    parsed[0]['tryouts'] ? parsed[0]['tryouts'] : null,
+                                    parsed[0]['battery-resistance'] ? parsed[0]['battery-resistance'] : null,
+                                    parsed[0]['controller-type'] ? parsed[0]['controller-type'] : null,
+                                    parsed[0]['score'] ? parsed[0]['score'] : null,
+                                    parsed[0]['score-check'] ? parsed[0]['score-check'] : null,
+                                    parsed[0]['score-double-check'] ? parsed[0]['score-double-check'] : null,
+                                    parsed[0]['score-cheat'] ? parsed[0]['score-cheat'] : null,
+                                    parsed[0]['score-cheat-ratio'] ? parsed[0]['score-cheat-ratio'] : null,
+                                    parsed[0]['score-cheat-samples'] ? parsed[0]['score-cheat-samples'] : null,
+                                    parsed[0]['crash-count'] ? parsed[0]['crash-count'] : null,
+                                    parsed[0]['top-speed'] ? parsed[0]['top-speed'] : null,
+                                    parsed[0]['time-in-first'] ? parsed[0]['time-in-first'] : null,
+                                    parsed[0]['lap-times'] ? parsed[0]['lap-times'] : null,
+                                    parsed[0]['gate-times'] ? parsed[0]['gate-times'] : null,
+                                    parsed[0]['fastest-lap'] ? parsed[0]['fastest-lap'] : null,
+                                    parsed[0]['slowest-lap'] ? parsed[0]['slowest-lap'] : null,
+                                    parsed[0]['total-distance'] ? parsed[0]['total-distance'] : null,
+                                    parsed[0]['order-col'] ? parsed[0]['order-col'] : null,
+                                    parsed[0]['high-score'] ? parsed[0]['high-score'] : null,
+                                    parsed[0]['race-id'] ? parsed[0]['race-id'] : null,
+                                    parsed[0]['limit-col'] ? parsed[0]['limit-col'] : null,
+                                    parsed[0]['heat'] ? parsed[0]['heat'] : null,
+                                    parsed[0]['custom-physics'] ? parsed[0]['custom-physics'] : null,
+                                    parsed[0]['drl-official'] ? parsed[0]['drl-official'] : null,
+                                    parsed[0]['drl-pilot-mode'] ? parsed[0]['drl-pilot-mode'] : null,
+                                    parsed[0]['drone-guid'] ? parsed[0]['drone-guid'] : null,
+                                    parsed[0]['drone-rig'] ? parsed[0]['drone-rig'] : null,
+                                    parsed[0]['drone-hash'] ? parsed[0]['drone-hash'] : null,
+                                    (err) => {
+
+                                        if (err) {
+                                            console.error("SQLite insert failed:", err);
+                                            return;
+                                        }
+
+                                        stmt.finalize(err => {
+                                            if (err) console.error("Error finalizing statement:", err);
+                                        });
+                                    });
+                                highscore = true
+                            });
+                        } else {
+                            highscore = false
+                        }
+                        db.get(`SELECT * FROM playerprogression WHERE uid = ?`, [uid], (err, row) => {
+                            if (err || !row) {
+                                console.error("Error fetching playerprogression:", err);
                                 res.status(500).json({ success: false });
                                 return;
                             }
-
-                            if (!row) {
-                            } else {
-                                jsondata = JSON.parse(row.json);
+                            let xpValue = 0
+                            for (let i = 0; i < Tracks.length; i++) {
+                                if (Tracks[i].guid === parsed[0]['custom-map']) {
+                                    xpValue = Tracks[i]['xp-value'];
+                                }
                             }
-
-
-
+                            let NEWXP = row.xp + xpValue;
+                            if (NEWXP >= row.next_level_xp) {
+                                row.previous_level_xp = row.next_level_xp;
+                                row.level += 1;
+                                row.next_level_xp = row.next_level_xp * 1.5;
+                            }
+                            const currentTIME = new Date()
+                            if (currentTIME > Date(row.weekend)) {
+                                xpThisWeek = 0 + xpValue;
+                            } else {
+                                xpThisWeek = row.xp_this_week + xpValue;
+                            }
+                            let progression = {
+                                xp: NEWXP,
+                                "previous-level-xp": row.previous_level_xp,
+                                "next-level-xp": row.next_level_xp,
+                                level: row.level,
+                                "rank-name": row.rank_name,
+                                "rank-index": row.rank_index,
+                                "rank-position": row.rank_position,
+                                "rank-round-start": row.rank_round_start,
+                                "rank-round-end": row.rank_round_end,
+                                "streak-points": row.streak_points,
+                                "daily-completed-maps": row.daily_completed_maps,
+                                "goal-daily-completed-maps": row.goal_daily_completed_maps,
+                                prizes: JSON.parse(row.prizes)
+                            }
                             const stmt = db.prepare(
-                                `INSERT INTO leaderboard (player_id, profile_name, profile_color, map, track, is_custom_map, custom_map, mission, group_id, replay_url, game_type, diameter, drone_name, drone_thumb, multiplayer, multiplayer_room_id, multiplayer_room_size, multiplayer_player_id, multiplayer_master_id, multiplayer_player_position, flag_url, score_type, match_id, tryouts, battery_resistance, controller_type, score, score_check, score_double_check, score_cheat, score_cheat_ratio, score_cheat_samples, crash_count, top_speed, time_in_first, lap_times, gate_times, fastest_lap, slowest_lap, total_distance, order_col, high_score, race_id, limit_col, heat, custom_physics, drl_official, drl_pilot_mode, drone_guid, drone_rig, drone_hash, updated_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                                ON CONFLICT(player_id, map, track, diameter, drl_official, custom_map) DO UPDATE SET replay_url = excluded.replay_url, score = excluded.score, score_check = excluded.score_check, score_double_check = excluded.score_double_check, controller_type = excluded.controller_type, score_cheat = excluded.score_cheat, score_cheat_ratio = excluded.score_cheat_ratio, score_cheat_samples = excluded.score_cheat_samples, crash_count = excluded.crash_count, top_speed = excluded.top_speed, lap_times = excluded.lap_times, gate_times = excluded.gate_times, fastest_lap = excluded.fastest_lap, slowest_lap = excluded.slowest_lap, total_distance = excluded.total_distance, race_id = excluded.race_id, drone_name = excluded.drone_name, drone_guid = excluded.drone_guid, updated_at = datetime('now');`
+                                `INSERT INTO playerprogression (uid, xp, previous_level_xp, next_level_xp, level, rank_name, rank_index, rank_position, rank_round_start, rank_round_end, streak_points, daily_completed_maps, goal_daily_completed_maps, prizes, xp_this_week, weekstart, weekend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (uid) DO UPDATE SET xp = excluded.xp, previous_level_xp = excluded.previous_level_xp, next_level_xp = excluded.next_level_xp, level = excluded.level, xp_this_week = excluded.xp_this_week, weekstart = excluded.weekstart, weekend = excluded.weekend;`
                             );
+
                             stmt.run(
                                 uid,
-                                jsondata['profile-name'],
-                                jsondata['profile-color'],
-                                parsed[0].map ? parsed[0].map : "unknown",
-                                parsed[0].track ? parsed[0].track : "unknown",
-                                parsed[0]['is-custom-map'] ? parsed[0]['is-custom-map'] : true,
-                                parsed[0]['custom-map'] ? parsed[0]['custom-map'] : null,
-                                parsed[0]['mission'] ? parsed[0]['mission'] : null,
-                                parsed[0]['group-id'] ? parsed[0]['group-id'] : null,
-                                parsed[0]['replay-url'] ? parsed[0]['replay-url'] : null,
-                                parsed[0]['game-type'] ? parsed[0]['game-type'] : null,
-                                parsed[0]['diameter'] ? parsed[0]['diameter'] : 7,
-                                parsed[0]['drone-name'] ? parsed[0]['drone-name'] : null,
-                                parsed[0]['drone-thumb'] ? parsed[0]['drone-thumb'] : null,
-                                parsed[0]['multiplayer'] ? parsed[0]['multiplayer'] : null,
-                                parsed[0]['multiplayer-room-id'] ? parsed[0]['multiplayer-room-id'] : null,
-                                parsed[0]['multiplayer-room-size'] ? parsed[0]['multiplayer-room-size'] : null,
-                                parsed[0]['multiplayer-player-id'] ? parsed[0]['multiplayer-player-id'] : null,
-                                parsed[0]['multiplayer-master-id'] ? parsed[0]['multiplayer-master-id'] : null,
-                                parsed[0]['multiplayer-player-position'] ? parsed[0]['multiplayer-player-position'] : null,
-                                parsed[0]['flag-url'] ? parsed[0]['flag-url'] : null,
-                                parsed[0]['score-type'] ? parsed[0]['score-type'] : null,
-                                parsed[0]['match-id'] ? parsed[0]['match-id'] : null,
-                                parsed[0]['tryouts'] ? parsed[0]['tryouts'] : null,
-                                parsed[0]['battery-resistance'] ? parsed[0]['battery-resistance'] : null,
-                                parsed[0]['controller-type'] ? parsed[0]['controller-type'] : null,
-                                parsed[0]['score'] ? parsed[0]['score'] : null,
-                                parsed[0]['score-check'] ? parsed[0]['score-check'] : null,
-                                parsed[0]['score-double-check'] ? parsed[0]['score-double-check'] : null,
-                                parsed[0]['score-cheat'] ? parsed[0]['score-cheat'] : null,
-                                parsed[0]['score-cheat-ratio'] ? parsed[0]['score-cheat-ratio'] : null,
-                                parsed[0]['score-cheat-samples'] ? parsed[0]['score-cheat-samples'] : null,
-                                parsed[0]['crash-count'] ? parsed[0]['crash-count'] : null,
-                                parsed[0]['top-speed'] ? parsed[0]['top-speed'] : null,
-                                parsed[0]['time-in-first'] ? parsed[0]['time-in-first'] : null,
-                                parsed[0]['lap-times'] ? parsed[0]['lap-times'] : null,
-                                parsed[0]['gate-times'] ? parsed[0]['gate-times'] : null,
-                                parsed[0]['fastest-lap'] ? parsed[0]['fastest-lap'] : null,
-                                parsed[0]['slowest-lap'] ? parsed[0]['slowest-lap'] : null,
-                                parsed[0]['total-distance'] ? parsed[0]['total-distance'] : null,
-                                parsed[0]['order-col'] ? parsed[0]['order-col'] : null,
-                                parsed[0]['high-score'] ? parsed[0]['high-score'] : null,
-                                parsed[0]['race-id'] ? parsed[0]['race-id'] : null,
-                                parsed[0]['limit-col'] ? parsed[0]['limit-col'] : null,
-                                parsed[0]['heat'] ? parsed[0]['heat'] : null,
-                                parsed[0]['custom-physics'] ? parsed[0]['custom-physics'] : null,
-                                parsed[0]['drl-official'] ? parsed[0]['drl-official'] : null,
-                                parsed[0]['drl-pilot-mode'] ? parsed[0]['drl-pilot-mode'] : null,
-                                parsed[0]['drone-guid'] ? parsed[0]['drone-guid'] : null,
-                                parsed[0]['drone-rig'] ? parsed[0]['drone-rig'] : null,
-                                parsed[0]['drone-hash'] ? parsed[0]['drone-hash'] : null,
-                                (err) => {
-
-                                    if (err) {
-                                        console.error("SQLite insert failed:", err);
-                                        return;
-                                    }
-
-                                    stmt.finalize(err => {
-                                        if (err) console.error("Error finalizing statement:", err);
-                                    });
-                                });
-                            highscore = true
-                        });
-                    } else {
-                        highscore = false
-                    }
-                    db.get(`SELECT * FROM playerprogression WHERE uid = ?`, [uid], (err, row) => {
-                        if (err || !row) {
-                            console.error("Error fetching playerprogression:", err);
-                            res.status(500).json({ success: false });
-                            return;
-                        }
-                        let xpValue = 0
-                        for (let i = 0; i < Tracks.length; i++) {
-                            if (Tracks[i].guid === parsed[0]['custom-map']) {
-                                xpValue = Tracks[i]['xp-value'];
-                            }
-                        }
-                        let NEWXP = row.xp + xpValue;
-                        if (NEWXP >= row.next_level_xp) {
-                            row.previous_level_xp = row.next_level_xp;
-                            row.level += 1;
-                            row.next_level_xp = row.next_level_xp * 1.5;
-                        }
-                        const currentTIME = new Date()
-                        if (currentTIME > Date(row.weekend)) {
-                            xpThisWeek = 0 + xpValue;
-                        } else {
-                            xpThisWeek = row.xp_this_week + xpValue;
-                        }
-                        let progression = {
-                            xp: NEWXP,
-                            "previous-level-xp": row.previous_level_xp,
-                            "next-level-xp": row.next_level_xp,
-                            level: row.level,
-                            "rank-name": row.rank_name,
-                            "rank-index": row.rank_index,
-                            "rank-position": row.rank_position,
-                            "rank-round-start": row.rank_round_start,
-                            "rank-round-end": row.rank_round_end,
-                            "streak-points": row.streak_points,
-                            "daily-completed-maps": row.daily_completed_maps,
-                            "goal-daily-completed-maps": row.goal_daily_completed_maps,
-                            prizes: JSON.parse(row.prizes)
-                        }
-                        const stmt = db.prepare(
-                            `INSERT INTO playerprogression (uid, xp, previous_level_xp, next_level_xp, level, rank_name, rank_index, rank_position, rank_round_start, rank_round_end, streak_points, daily_completed_maps, goal_daily_completed_maps, prizes, xp_this_week, weekstart, weekend) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT (uid) DO UPDATE SET xp = excluded.xp, previous_level_xp = excluded.previous_level_xp, next_level_xp = excluded.next_level_xp, level = excluded.level, xp_this_week = excluded.xp_this_week, weekstart = excluded.weekstart, weekend = excluded.weekend;`
-                        );
-
-                        stmt.run(
-                            uid,
-                            progression.xp,
-                            progression['previous-level-xp'],
-                            progression['next-level-xp'],
-                            progression.level,
-                            progression["rank-name"],
-                            progression["rank-index"],
-                            progression["rank-position"],
-                            progression["rank-round-start"],
-                            progression["rank-round-end"],
-                            progression["streak-points"],
-                            progression["daily-completed-maps"],
-                            progression["goal-daily-completed-maps"],
-                            JSON.stringify(progression.prizes),
-                            xpThisWeek,
-                            getEndOfLastISOWeek(),
-                            getStartOfNextISOWeek()
-                        );
-                        let data = [
-                            {
-                                playerId: "abc123",
-                                username: "PilotOne",
-                                platformPlayerId: "steam_001",
-                                score: 123456,
-                                position: 1,
-                                gameType: "Race",
-                                matchId: "match_001",
-                                map: "Desert",
-                                track: "TrackA",
-                                lapTimes: [40000, 41000, 39500],
-                                topSpeed: 98.5,
-                                timeInFirst: 120000,
-                                totalDistance: 1500,
-                                progression: progression,
-                                "high-score": highscore,
-                                diameter: parsed[0].diameter,
-                                "drl-official": parsed[0]['drl-official']
-                            }
-                        ]
-                        res.status(200).json({
-                            success: true, data: data
+                                progression.xp,
+                                progression['previous-level-xp'],
+                                progression['next-level-xp'],
+                                progression.level,
+                                progression["rank-name"],
+                                progression["rank-index"],
+                                progression["rank-position"],
+                                progression["rank-round-start"],
+                                progression["rank-round-end"],
+                                progression["streak-points"],
+                                progression["daily-completed-maps"],
+                                progression["goal-daily-completed-maps"],
+                                JSON.stringify(progression.prizes),
+                                xpThisWeek,
+                                getEndOfLastISOWeek(),
+                                getStartOfNextISOWeek()
+                            );
+                            let data = [
+                                {
+                                    playerId: "abc123",
+                                    username: "PilotOne",
+                                    platformPlayerId: "steam_001",
+                                    score: 123456,
+                                    position: 1,
+                                    gameType: "Race",
+                                    matchId: "match_001",
+                                    map: "Desert",
+                                    track: "TrackA",
+                                    lapTimes: [40000, 41000, 39500],
+                                    topSpeed: 98.5,
+                                    timeInFirst: 120000,
+                                    totalDistance: 1500,
+                                    progression: progression,
+                                    "high-score": highscore,
+                                    diameter: parsed[0].diameter,
+                                    "drl-official": parsed[0]['drl-official']
+                                }
+                            ]
+                            res.status(200).json({
+                                success: true, data: data
+                            });
                         });
                     });
-                });
+                }
             });
         });
     });
@@ -2063,40 +2128,45 @@ app.get('/experience-points/ranking/', (req, res) => {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            }
-            const uid = row.uid;
-            db.get(`SELECT * FROM playerprogression WHERE uid = ?`, [uid], (err, row) => {
-                if (err || !row) {
-                    console.error("Error fetching playerprogression:", err);
-                    res.status(500).json({ success: false });
-                    return;
-                } else {
-                    if (row.xp_this_week == 0) {
-                        res.status(200).json({ success: true, data: null });
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
+                const uid = row.uid;
+                db.get(`SELECT * FROM playerprogression WHERE uid = ?`, [uid], (err, row) => {
+                    if (err || !row) {
+                        console.error("Error fetching playerprogression:", err);
+                        res.status(500).json({ success: false });
+                        return;
                     } else {
-                        let jsondata = {
-                            "league": {
-                                "name": row.league_name,
-                                "guid": row.league_guid
-                            },
-                            "start-at": row.weekstart,
-                            "end-at": row.weekend,
-                            "ranking": [{
-                                "is-player": true,
-                                "is-top": true,
-                                "is-bottom": false,
-                                "profile-color": "3FA9F5",
-                                "profile-thumb": "https://avatars.githubusercontent.com/u/131718510?v=4&size=64",
-                                "profile-name": "YOU",
-                                "position": 1,
-                                "type": "player",
-                                "xp": row.xp_this_week
-                            }]
-                        };
-                        res.status(200).json({ success: true, data: jsondata });
+                        if (row.xp_this_week == 0) {
+                            res.status(200).json({ success: true, data: null });
+                        } else {
+                            let jsondata = {
+                                "league": {
+                                    "name": row.league_name,
+                                    "guid": row.league_guid
+                                },
+                                "start-at": row.weekstart,
+                                "end-at": row.weekend,
+                                "ranking": [{
+                                    "is-player": true,
+                                    "is-top": true,
+                                    "is-bottom": false,
+                                    "profile-color": "3FA9F5",
+                                    "profile-thumb": "https://avatars.githubusercontent.com/u/131718510?v=4&size=64",
+                                    "profile-name": "YOU",
+                                    "position": 1,
+                                    "type": "player",
+                                    "xp": row.xp_this_week
+                                }]
+                            };
+                            res.status(200).json({ success: true, data: jsondata });
+                        }
                     }
-                }
-            });
+                });
+            }
         });
     });
 })
@@ -2126,58 +2196,63 @@ app.get('/experience-points/progression/', (req, res) => {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            }
-            const uid = row.uid;
-            db.get(`SELECT * FROM playerprogression WHERE uid = ?`, [uid], (err, row) => {
-                if (err) {
-                    console.error("Error fetching playerprogression:", err);
-                    res.status(500).json({ success: false });
-                    return;
-                }
-                if (!row) {
-                    console.log("No player progression found for UID:", uid);
-                    jsondata = payload;
-                    res.status(200).json({ success: true, data: payload });
-                    const stmt = db.prepare(
-                        `INSERT INTO playerprogression (uid, xp, previous_level_xp, next_level_xp, level, rank_name, rank_index, rank_position, rank_round_start, rank_round_end, streak_points, daily_completed_maps, goal_daily_completed_maps, prizes, league_guid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
-                    );
-                    stmt.run(
-                        uid,
-                        payload.xp,
-                        payload['previous-level-xp'],
-                        payload['next-level-xp'],
-                        payload.level,
-                        payload["rank-name"],
-                        payload["rank-index"],
-                        payload["rank-position"],
-                        payload["rank-round-start"],
-                        payload["rank-round-end"],
-                        payload["streak-points"],
-                        payload["daily-completed-maps"],
-                        payload["goal-daily-completed-maps"],
-                        JSON.stringify(payload.prizes),
-                        "LG-1"
-                    );
-                    console.log("Inserted default progression for UID:", uid);
-                } else {
-                    let jsondata = {
-                        xp: row.xp,
-                        "previous-level-xp": row.previous_level_xp,
-                        "next-level-xp": row.next_level_xp,
-                        level: row.level,
-                        "rank-name": row.rank_name,
-                        "rank-index": row.rank_index,
-                        "rank-position": row.rank_position,
-                        "rank-round-start": row.rank_round_start,
-                        "rank-round-end": row.rank_round_end,
-                        "streak-points": row.streak_points,
-                        "daily-completed-maps": row.daily_completed_maps,
-                        "goal-daily-completed-maps": row.goal_daily_completed_maps,
-                        prizes: JSON.parse(row.prizes)
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
+                const uid = row.uid;
+                db.get(`SELECT * FROM playerprogression WHERE uid = ?`, [uid], (err, row) => {
+                    if (err) {
+                        console.error("Error fetching playerprogression:", err);
+                        res.status(500).json({ success: false });
+                        return;
                     }
-                    res.status(200).json({ success: true, data: jsondata });
-                }
-            });
+                    if (!row) {
+                        console.log("No player progression found for UID:", uid);
+                        jsondata = payload;
+                        res.status(200).json({ success: true, data: payload });
+                        const stmt = db.prepare(
+                            `INSERT INTO playerprogression (uid, xp, previous_level_xp, next_level_xp, level, rank_name, rank_index, rank_position, rank_round_start, rank_round_end, streak_points, daily_completed_maps, goal_daily_completed_maps, prizes, league_guid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+                        );
+                        stmt.run(
+                            uid,
+                            payload.xp,
+                            payload['previous-level-xp'],
+                            payload['next-level-xp'],
+                            payload.level,
+                            payload["rank-name"],
+                            payload["rank-index"],
+                            payload["rank-position"],
+                            payload["rank-round-start"],
+                            payload["rank-round-end"],
+                            payload["streak-points"],
+                            payload["daily-completed-maps"],
+                            payload["goal-daily-completed-maps"],
+                            JSON.stringify(payload.prizes),
+                            "LG-1"
+                        );
+                        console.log("Inserted default progression for UID:", uid);
+                    } else {
+                        let jsondata = {
+                            xp: row.xp,
+                            "previous-level-xp": row.previous_level_xp,
+                            "next-level-xp": row.next_level_xp,
+                            level: row.level,
+                            "rank-name": row.rank_name,
+                            "rank-index": row.rank_index,
+                            "rank-position": row.rank_position,
+                            "rank-round-start": row.rank_round_start,
+                            "rank-round-end": row.rank_round_end,
+                            "streak-points": row.streak_points,
+                            "daily-completed-maps": row.daily_completed_maps,
+                            "goal-daily-completed-maps": row.goal_daily_completed_maps,
+                            prizes: JSON.parse(row.prizes)
+                        }
+                        res.status(200).json({ success: true, data: jsondata });
+                    }
+                });
+            }
         });
     });
 })
@@ -2207,20 +2282,24 @@ app.post('/drones/', express.urlencoded({ extended: true }), (req, res) => {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            }
-            const uid = row.uid;
-            db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
-                if (err) {
-                    console.error("Error fetching JSON:", err);
-                    res.status(500).json({ success: false });
-                    return;
-                }
-                if (!row) {
-                } else {
-                    jsondata = JSON.parse(row.json);
-                }
-                const stmt = db.prepare(
-                    `INSERT INTO drone (
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
+                const uid = row.uid;
+                db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
+                    if (err) {
+                        console.error("Error fetching JSON:", err);
+                        res.status(500).json({ success: false });
+                        return;
+                    }
+                    if (!row) {
+                    } else {
+                        jsondata = JSON.parse(row.json);
+                    }
+                    const stmt = db.prepare(
+                        `INSERT INTO drone (
                     guid,
                     player_id,
                     profile_platform_id,
@@ -2283,40 +2362,41 @@ app.post('/drones/', express.urlencoded({ extended: true }), (req, res) => {
                     rig_data             = excluded.rig_data,
                     profile_data         = excluded.profile_data,
                     physics_data         = excluded.physics_data;`
-                );
-                stmt.run(
-                    req.body.guid,
-                    uid,
-                    jsondata['profile-platform-id'],
-                    jsondata['profile-platform'],
-                    jsondata['profile-color'],
-                    jsondata['profile-thumb'],
-                    req.body['profile-name'],
-                    req.body.score,
-                    req.body.rating,
-                    req.body['rating-count'],
-                    req.body['thumb-url'],
-                    req.body.name,
-                    req.body['is-public'],
-                    req.body['is-official'],
-                    req.body['is-custom-physics'],
-                    req.body['flight-time'],
-                    req.body['flight-total'],
-                    req.body.size,
-                    req.body.thrust,
-                    req.body.speed,
-                    req.body.weight,
-                    req.body.rpm,
-                    req.body['frame-id'],
-                    req.body['motor-id'],
-                    req.body['prop-id'],
-                    req.body['battery-id'],
-                    JSON.stringify(req.body['rig-data']),
-                    JSON.stringify(req.body['profile-data']),
-                    JSON.stringify(req.body['physics-data'])
-                );
-                res.status(200).json({ success: true, data: req.body })
-            });
+                    );
+                    stmt.run(
+                        req.body.guid,
+                        uid,
+                        jsondata['profile-platform-id'],
+                        jsondata['profile-platform'],
+                        jsondata['profile-color'],
+                        jsondata['profile-thumb'],
+                        req.body['profile-name'],
+                        req.body.score,
+                        req.body.rating,
+                        req.body['rating-count'],
+                        req.body['thumb-url'],
+                        req.body.name,
+                        req.body['is-public'],
+                        req.body['is-official'],
+                        req.body['is-custom-physics'],
+                        req.body['flight-time'],
+                        req.body['flight-total'],
+                        req.body.size,
+                        req.body.thrust,
+                        req.body.speed,
+                        req.body.weight,
+                        req.body.rpm,
+                        req.body['frame-id'],
+                        req.body['motor-id'],
+                        req.body['prop-id'],
+                        req.body['battery-id'],
+                        JSON.stringify(req.body['rig-data']),
+                        JSON.stringify(req.body['profile-data']),
+                        JSON.stringify(req.body['physics-data'])
+                    );
+                    res.status(200).json({ success: true, data: req.body })
+                });
+            }
         });
     });
 });
@@ -2325,19 +2405,26 @@ app.get('/drones/:guid/remove/', (req, res) => {
     const token = req.headers['x-access-jsonwebtoken'];
     db.serialize(() => {
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
-            console.log("Player", row ? row.uid : "unknown", "is requesting progression");
+            console.log("Player", row ? row.uid : "unknown", "is deleting a drone");
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
+            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                console.error("Error fetching UID: Token expired");
+                res.status(401).json({ success: false });
+                return;
+            } else {
+                const uid = row.uid;
+                db.run(`DELETE FROM drone WHERE guid = ? AND player_id = ?`, [req.params.guid, uid], function (err) {
+                    if (err) {
+                        console.error("Error deleting drone:", err);
+                        res.status(500).json({ success: true });
+                        return
+                    }
+                });
+                res.status(200).json({ success: true });
             }
-            const uid = row.uid;
-            db.run(`DELETE FROM drone WHERE guid = ? AND player_id = ?`, [req.params.guid, uid], function (err) {
-                if (err) {
-                    console.error("Error deleting drone:", err);
-                }
-            });
-            res.status(200).json({ success: true });
         });
     });
 });
