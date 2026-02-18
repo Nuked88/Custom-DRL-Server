@@ -45,7 +45,7 @@ const replay = multer({ storage: replaydest });
 
 
 const app = express();
-const PORT = 8080;
+const PORT = 8080 || process.env.port;
 
 //TODO: Add more securty (mainly to post)
 //TODO: finnish maps IE duplicating and stuff
