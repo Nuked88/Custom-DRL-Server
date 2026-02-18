@@ -41,11 +41,18 @@ const replaydest = multer.diskStorage({
         cb(null, crypto.randomUUID());
     }
 });
+
 const replay = multer({ storage: replaydest });
 
 
 const app = express();
-const PORT = 8080 || process.env.port;
+const PORT = process.env.port || 8080;
+const url = process.env.url || `http://localhost:${PORT}`;
+
+app.use(rateLimit({
+    windowMs: 60_000,
+    max: 200
+}));
 
 //TODO: Add more securty (mainly to post)
 //TODO: finnish maps IE duplicating and stuff
@@ -53,6 +60,8 @@ const PORT = 8080 || process.env.port;
 //TODO: Get tournaments working ???
 //TODO: Get a test server up and runnning
 //TODO: Better logging and error handling IE 500 res if the db fails
+//TODO: Make it look better
+
 
 /*
 -------------------------------------------------
@@ -271,7 +280,7 @@ app.post('/maps/:guid/duplicate', express.urlencoded({ extended: false }), (req,
 });
 
 app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /maps/ via POST")
     db.serialize(() => {
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
@@ -280,8 +289,8 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
                 res.status(404).json({ success: false });
                 return;
             }
-            uid = row.uid
-            payload = {
+            const uid = row.uid
+            let payload = {
                 "success": true,
                 "message": null,
                 "token": null,
@@ -305,8 +314,8 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
                 }
             });
             db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
-                jsondata = JSON.parse(row.json);
-                root = {
+                let jsondata = JSON.parse(row.json);
+                let root = {
                     "id": req.body.root.id,
                     "children": [],
                     "type": req.body.root.type,
@@ -330,7 +339,7 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
                     req.body["is-race-allowed"],
                     uid,
                     jsondata["profile-name"],
-                    `http://localhost:${PORT}/tracks/${req.body.guid}`,
+                    url + `/tracks/${req.body.guid}`,
                     req.body["map-difficulty"],
                     req.body["map-lighting"],
                     req.body["is-public"],
@@ -413,7 +422,8 @@ app.post('/maps/updated/', express.urlencoded({ extended: false }), (req, res) =
 })
 
 app.get('/maps/user/updated/', (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
+
     console.log("req sent to /maps/user/updated/")
     let payload = []
     db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
@@ -422,7 +432,7 @@ app.get('/maps/user/updated/', (req, res) => {
             res.status(404).json({ success: false });
             return;
         }
-        uid = row.uid
+        const uid = row.uid
         db.all(`SELECT * FROM communitytracks WHERE player_id = ?`, [], (err, row) => {
             if (err) {
                 console.error("Error fetching community tracks:", err);
@@ -480,7 +490,7 @@ app.post('/maps/:guid/rate/', (req, res) => {
 })
 
 app.get('/maps/:guid/remove/', (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /maps/:guid/remove/ for guid:", req.params.guid)
 
 
@@ -494,7 +504,7 @@ app.get('/maps/:guid/remove/', (req, res) => {
                 res.status(404).json({ success: false });
                 return;
             }
-            uid = row.uid;
+            const uid = row.uid;
             db.get(`SELECT player_id FROM communitytracks WHERE guid = ?`, [req.params.guid], (err, row) => {
                 if (err || !row) {
                     console.error("Error fetching drone:", err);
@@ -525,7 +535,7 @@ app.get('/maps/:guid/remove/', (req, res) => {
 
 
 app.get('/maps/:guid', (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /maps/ for guid:", req.params.guid)
     const guid = req.params.guid
     let payload = []
@@ -535,7 +545,7 @@ app.get('/maps/:guid', (req, res) => {
             res.status(404).json({ success: false });
             return;
         }
-        uid = row.uid
+        const uid = row.uid
         db.all(`SELECT * FROM communitytracks WHERE guid = ?`, [guid], (err, row) => {
             if (err) {
                 console.error("Error fetching community tracks:", err);
@@ -678,7 +688,7 @@ app.post('/replay/', replay.single('replay-data'), (req, res) => {
             res.status(404).json({ success: false });
             return;
         }
-        uid = row.uid
+        const uid = row.uid
         db.run(
             `
     UPDATE leaderboard
@@ -691,7 +701,7 @@ app.post('/replay/', replay.single('replay-data'), (req, res) => {
         LIMIT 1
     )
     `,
-            ['http://localhost:' + PORT + '/replay/' + uid + '/' + req.file.filename, uid],
+            [ url + '/replay/' + uid + '/' + req.file.filename, uid],
             function (err) {
 
                 if (err) {
@@ -716,11 +726,11 @@ app.post('/storage/replay-cloud/', replayCloud.single('file'), (req, res) => {
 })
 
 app.post('/storage/image/', imageCloud.single('file'), (req, res) => {
-    console.log("replay sent to /storage/image/ here is data:", req.headers);
+    console.log("Image sent to /storage/image/ here is data:", req.headers);
     console.log(req.query)
     console.log(req.body);
     console.log(req.file);
-    res.status(200).json({ success: true, data: `http://localhost:${PORT}/image-cloud/${req.file.filename}` });
+    res.status(200).json({ success: true, data: url + `/image-cloud/${req.file.filename}` });
 })
 
 app.get('/image-cloud/:id', (req, res) => {
@@ -766,7 +776,7 @@ app.post('/v2/login', (req, res) => {
         const parsed = querystring.parse(body);
 
         try {
-            decToken = decryptDRL(parsed.token, "09e027edfde3212431a8758576807083", parsed.time.padStart(16, '0'));
+            const decToken = decryptDRL(parsed.token, "09e027edfde3212431a8758576807083", parsed.time.padStart(16, '0'));
         } catch (E) {
             console.error("Login Decryption failed:", E);
             res.status(400).json({ success: false });
@@ -823,13 +833,13 @@ app.post('/v2/login', (req, res) => {
 app.get('/social/profile/', (req, res) => {
     console.log("social profile header for:", req.headers);
     console.log(req.query)
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
     db.serialize(() => {
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
             uid = row.uid
             db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
                 jsondata = JSON.parse(row.json);
-                payload = [{
+                let payload = [{
                     "platform-id": "epic-id",
                     "player-id": row.uid,
                     "profile-color": jsondata["profile-color"],
@@ -1072,8 +1082,9 @@ app.get('/tournaments/', (req, res) => {
 -------------------------------------------------------------------------------------------------
 */
 
+//TODO: This
 app.get('/leaderboards/user/', (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
     console.log(req.query)
     db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
@@ -1081,12 +1092,9 @@ app.get('/leaderboards/user/', (req, res) => {
             res.status(500).json({ success: false });
             return;
         }
-        const uid = row.uid;
-        const diameter = Number(req.query.diameter);
-        const drlOfficial = req.query["drl-official"] === "true" ? 1 : 0;
 
     });
-    data = {
+    let data = {
         leaderboard: [
             {
                 playerId: "abc123",
@@ -1115,7 +1123,7 @@ app.get('/leaderboards/user/', (req, res) => {
 });
 
 app.post('/leaderboards/user/reset/', express.urlencoded({ extended: true }), (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
     db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error uid FROM user:", err);
@@ -1144,8 +1152,10 @@ app.post('/leaderboards/user/reset/', express.urlencoded({ extended: true }), (r
 });
 
 app.post('/leaderboards/user/reset/track/', express.urlencoded({ extended: true }), (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
     console.log(req.body)
+    let sql;
+    let args;
     if (req.body.isCustom === 'true') {
         sql = `AND custom_map = ?`
         args = [uid, req.body.mapID, req.body.customMapId]
@@ -1172,7 +1182,7 @@ app.post('/leaderboards/user/reset/track/', express.urlencoded({ extended: true 
 });
 
 app.post('/leaderboards/', (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
 
 
     console.log("NEW LEADERBOARD POST:")
@@ -1183,6 +1193,7 @@ app.post('/leaderboards/', (req, res) => {
         const parsed = JSON.parse(decodeURIComponent(raw));
         console.log(parsed[0])
         db.serialize(() => {
+            let highscore;
             db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
                 if (err || !row) {
                     console.error("Error uid FROM user:", err);
@@ -1193,12 +1204,12 @@ app.post('/leaderboards/', (req, res) => {
                 const diameter = Number(parsed[0].diameter);
                 if (parsed[0]['is-custom-map'] == true) {
                     query = `WHERE player_id = ? AND map = ? AND track = ? AND diameter = ? AND drl_official = ? AND custom_map = ? `
-                    inputs = [uid,parsed[0].map, parsed[0].track, diameter, parsed[0]["drl-official"], parsed[0]['custom-map']]
+                    inputs = [uid, parsed[0].map, parsed[0].track, diameter, parsed[0]["drl-official"], parsed[0]['custom-map']]
                 } else {
                     query = `WHERE player_id = ? AND map = ? AND track = ? AND diameter = ? AND drl_official = ? `
                     inputs = [uid, parsed[0].map, parsed[0].track, diameter, parsed[0]["drl-official"]]
                 }
-                console.log(`SELECT * FROM leaderboard ${query} `,inputs)
+                console.log(`SELECT * FROM leaderboard ${query} `, inputs)
                 db.get(`SELECT * FROM leaderboard ${query}`, inputs, (err, row) => {
                     if (err || !row) {
                         console.error("Error fetching leaderboard:", err);
@@ -1210,8 +1221,8 @@ app.post('/leaderboards/', (req, res) => {
                             : true;
                     if (isBetterScore || isNewRow) {
                         if (!isNewRow) {
-                            rep = row.replay_url
-                            prefix = `http://localhost:${PORT}/replay/${uid}/`
+                            let rep = row.replay_url
+                            let prefix = url + `/replay/${uid}/`
                             if (rep.startsWith(prefix)) {
                                 oldReplayfile = rep.substring(prefix.length)
                                 fs.unlink(path.join("replay", uid, oldReplayfile), (err) => {
@@ -1314,7 +1325,7 @@ app.post('/leaderboards/', (req, res) => {
                             res.status(500).json({ success: false });
                             return;
                         }
-                        xpValue = 0
+                        let xpValue = 0
                         for (let i = 0; i < Tracks.length; i++) {
                             if (Tracks[i].guid === parsed[0]['custom-map']) {
                                 xpValue = Tracks[i]['xp-value'];
@@ -1326,13 +1337,13 @@ app.post('/leaderboards/', (req, res) => {
                             row.level += 1;
                             row.next_level_xp = row.next_level_xp * 1.5;
                         }
-                        currentTIME = new Date()
+                        const currentTIME = new Date()
                         if (currentTIME > Date(row.weekend)) {
                             xpThisWeek = 0 + xpValue;
                         } else {
                             xpThisWeek = row.xp_this_week + xpValue;
                         }
-                        progression = {
+                        let progression = {
                             xp: NEWXP,
                             "previous-level-xp": row.previous_level_xp,
                             "next-level-xp": row.next_level_xp,
@@ -1371,7 +1382,7 @@ app.post('/leaderboards/', (req, res) => {
                             getEndOfLastISOWeek(),
                             getStartOfNextISOWeek()
                         );
-                        data = [
+                        let data = [
                             {
                                 playerId: "abc123",
                                 username: "PilotOne",
@@ -1404,13 +1415,15 @@ app.post('/leaderboards/', (req, res) => {
 
 
 app.get('/leaderboards/rivals/', (req, res) => {
-    token = req.headers['x-access-jsonwebtoken']
+    const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /leaderboards/rivals/ headers are:", req.headers);
     db.serialize(() => {
         console.log(req.query)
         const uid = req.query['player-id'];
         const diameter = Number(req.query.diameter);
         const drlOfficial = req.query["drl-official"] === "true" ? 1 : 0;
+        let query;
+        let inputs;
         if (req.query['is-custom-map'] == `true`) {
             query = `WHERE map = ? AND track = ? AND diameter = ? AND drl_official = ? AND custom_map = ? `
             inputs = [req.query.map, req.query.track, diameter, drlOfficial, req.query['custom-map']]
@@ -1421,7 +1434,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
         db.all(`SELECT * FROM leaderboard ` + query + `ORDER BY score ASC`, inputs, (err, row) => {
             if (err || row.length === 0) {
                 console.error("Error fetching leaderboard:", err);
-                jsondata = {
+                let jsondata = {
                     "top": [
                         null
                     ],
@@ -1433,13 +1446,13 @@ app.get('/leaderboards/rivals/', (req, res) => {
                     success: true, data: jsondata
                 });
             } else {
-                rivals = []
+                let rivals = []
                 row[0].position = 1
                 for (let i = 0; i < row.length; i++) {
                     if (row[i].player_id == uid) {
                         if (row[i - 1] && row[i + 1]) {
                             i = i - 1
-                            data = {
+                            let data = {
                                 "player-id": row[i].player_id,
                                 "map": row[i].map,
                                 "track": row[i].track,
@@ -1627,7 +1640,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                             break
                         } else if (row[i - 1]) {
                             i = i - 1
-                            data = {
+                            let data = {
                                 "player-id": row[i].player_id,
                                 "map": row[i].map,
                                 "track": row[i].track,
@@ -1752,7 +1765,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                             rivals.push(data)
                             break
                         } else {
-                            data = {
+                            let data = {
                                 "player-id": row[i].player_id,
                                 "map": row[i].map,
                                 "track": row[i].track,
@@ -1817,7 +1830,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                         }
                     }
                 }
-                jsondata = {
+                let jsondata = {
                     "top": [
                         row[0]
                     ],
@@ -1860,10 +1873,10 @@ app.get('/leaderboards/', (req, res) => {
                         }
                     });
                 } else {
-                    jsondata = []
+                    let jsondata = []
                     for (let i = 0; i < row.length; i++) {
                         if (i < (limit * page)) {
-                            data = {
+                            let data = {
                                 "player-id": row[i].player_id,
                                 "map": row[i].map,
                                 "track": row[i].track,
@@ -1948,10 +1961,10 @@ app.get('/leaderboards/', (req, res) => {
                         }
                     });
                 } else {
-                    jsondata = []
+                    let jsondata = []
                     for (let i = 0; i < row.length; i++) {
                         if (i < (limit * page)) {
-                            data = {
+                            let data = {
                                 "player-id": row[i].player_id,
                                 "map": row[i].map,
                                 "track": row[i].track,
@@ -2042,7 +2055,7 @@ app.get('/leaderboards/', (req, res) => {
 
 app.get('/experience-points/ranking/', (req, res) => {
     console.log("req sent to /experience-points/ranking/:", req.headers);
-    token = req.headers['x-access-jsonwebtoken'];
+    const token = req.headers['x-access-jsonwebtoken'];
     db.serialize(() => {
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is requesting progression");
@@ -2051,7 +2064,7 @@ app.get('/experience-points/ranking/', (req, res) => {
                 res.status(404).json({ success: false });
                 return;
             }
-            uid = row.uid;
+            const uid = row.uid;
             db.get(`SELECT * FROM playerprogression WHERE uid = ?`, [uid], (err, row) => {
                 if (err || !row) {
                     console.error("Error fetching playerprogression:", err);
@@ -2061,7 +2074,7 @@ app.get('/experience-points/ranking/', (req, res) => {
                     if (row.xp_this_week == 0) {
                         res.status(200).json({ success: true, data: null });
                     } else {
-                        jsondata = {
+                        let jsondata = {
                             "league": {
                                 "name": row.league_name,
                                 "guid": row.league_guid
@@ -2086,32 +2099,11 @@ app.get('/experience-points/ranking/', (req, res) => {
             });
         });
     });
-
-    const payload = {
-        "league": {
-            "name": "",
-            "guid": "LG-1"
-        },
-        "start-at": "2026-01-01T00:00:00Z",
-        "end-at": "2026-01-31T23:59:59Z",
-        "ranking": [{
-            "is-player": true,
-            "is-top": true,
-            "is-bottom": false,
-            "profile-color": "3FA9F5",
-            "profile-thumb": "https://cdn/game/avatars/u123.png",
-            "profile-name": "YOU",
-            "flag-url": "https://cdn/game/flags/us.png",
-            "position": 1,
-            "type": "player",
-            "xp": 0
-        }]
-    };
 })
 
 
 app.get('/experience-points/progression/', (req, res) => {
-    token = req.headers['x-access-jsonwebtoken'];
+    const token = req.headers['x-access-jsonwebtoken'];
     const payload = {
         "xp": 0,
         "previous-level-xp": 0,
@@ -2135,7 +2127,7 @@ app.get('/experience-points/progression/', (req, res) => {
                 res.status(404).json({ success: false });
                 return;
             }
-            uid = row.uid;
+            const uid = row.uid;
             db.get(`SELECT * FROM playerprogression WHERE uid = ?`, [uid], (err, row) => {
                 if (err) {
                     console.error("Error fetching playerprogression:", err);
@@ -2168,7 +2160,7 @@ app.get('/experience-points/progression/', (req, res) => {
                     );
                     console.log("Inserted default progression for UID:", uid);
                 } else {
-                    jsondata = {
+                    let jsondata = {
                         xp: row.xp,
                         "previous-level-xp": row.previous_level_xp,
                         "next-level-xp": row.next_level_xp,
@@ -2205,7 +2197,7 @@ app.get('/experience-points/progression/', (req, res) => {
 
 
 app.post('/drones/', express.urlencoded({ extended: true }), (req, res) => {
-    token = req.headers['x-access-jsonwebtoken'];
+    const token = req.headers['x-access-jsonwebtoken'];
     console.log("req sent to /drones/ headers are: ", req.headers);
     console.log(req.body);
     db.serialize(() => {
@@ -2216,7 +2208,7 @@ app.post('/drones/', express.urlencoded({ extended: true }), (req, res) => {
                 res.status(404).json({ success: false });
                 return;
             }
-            uid = row.uid;
+            const uid = row.uid;
             db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
                 if (err) {
                     console.error("Error fetching JSON:", err);
@@ -2330,7 +2322,7 @@ app.post('/drones/', express.urlencoded({ extended: true }), (req, res) => {
 });
 
 app.get('/drones/:guid/remove/', (req, res) => {
-    token = req.headers['x-access-jsonwebtoken'];
+    const token = req.headers['x-access-jsonwebtoken'];
     db.serialize(() => {
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is requesting progression");
@@ -2339,7 +2331,7 @@ app.get('/drones/:guid/remove/', (req, res) => {
                 res.status(404).json({ success: false });
                 return;
             }
-            uid = row.uid;
+            const uid = row.uid;
             db.run(`DELETE FROM drone WHERE guid = ? AND player_id = ?`, [req.params.guid, uid], function (err) {
                 if (err) {
                     console.error("Error deleting drone:", err);
@@ -2473,11 +2465,6 @@ function getEndOfLastISOWeek() {
     return isoString;
 }
 
-app.use(rateLimit({
-    windowMs: 60_000,
-    max: 1000
-}));
-
 function decryptDRL(token, keyString, ivString) {
     const key = Buffer.from(keyString, 'utf8');
     const iv = Buffer.from(ivString, 'utf8');
@@ -2495,5 +2482,5 @@ function decryptDRL(token, keyString, ivString) {
 }
 
 app.listen(PORT, () => {
-    console.log(`Server is running on [http://localhost:${PORT}](http://localhost:${PORT})`);
+    console.log(`Server is running on [${url}](${url})`);
 });
