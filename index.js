@@ -25,7 +25,7 @@ const image = multer.diskStorage({
 const imageCloud = multer({ storage: image });
 
 const replaydest = multer.diskStorage({
-    destination: function (req, res, file, cb) {
+    destination: function (req, file, cb) {
         const token = req.headers['x-access-jsonwebtoken']
         console.log(req.headers)
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
