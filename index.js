@@ -25,10 +25,10 @@ const image = multer.diskStorage({
 const imageCloud = multer({ storage: image });
 
 const replaydest = multer.diskStorage({
-    destination: function (req, file, cb) {
+    destination: function (req, res, file, cb) {
         const token = req.headers['x-access-jsonwebtoken']
         console.log(req.headers)
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
@@ -53,7 +53,7 @@ const url = process.env.url || `http://localhost:${PORT}`;
 
 app.use(rateLimit({
     windowMs: 60_000,
-    max: 500
+    max: 120
 }));
 
 //TODO: finnish maps IE duplicating and stuff
@@ -92,7 +92,7 @@ db.serialize(() => {
     profile_thumb TEXT,
     profile_name TEXT,
     profile_platform TEXT,
-    is_custom_map BOOLEAN,
+    is_custom_map BOOLEAN NOT NULL,
     custom_map TEXT,
     mission TEXT,
     group_id TEXT,
@@ -288,7 +288,7 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
@@ -332,7 +332,7 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
 
                     stmt.run(
                         req.body.guid,
-                        root,
+                        JSON.stringify(root),
                         req.body.prefs,
                         req.body["map-dirty"],
                         req.body["map-title"],
@@ -431,18 +431,18 @@ app.get('/maps/user/updated/', (req, res) => {
 
     console.log("req sent to /maps/user/updated/")
     let payload = []
-    db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+    db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error fetching UID:", err);
             res.status(404).json({ success: false });
             return;
-        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+        } else if (row.expires < Math.floor(Date.now() / 1000)) {
             console.error("Error fetching UID: Token expired");
             res.status(401).json({ success: false });
             return;
         } else {
             const uid = row.uid
-            db.all(`SELECT * FROM communitytracks WHERE player_id = ?`, [], (err, row) => {
+            db.all(`SELECT * FROM communitytracks WHERE player_id = ?`, [uid], (err, row) => {
                 if (err) {
                     console.error("Error fetching community tracks:", err);
                 }
@@ -507,13 +507,13 @@ app.get('/maps/:guid/remove/', (req, res) => {
     const safeId = path.basename(req.params.guid);
     const filePath = path.join(__dirname, 'tracks', safeId + '.cmp');
     db.serialize(() => {
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is requesting progression");
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
@@ -561,12 +561,12 @@ app.get('/maps/:guid', (req, res) => {
     console.log("req sent to /maps/ for guid:", req.params.guid)
     const guid = req.params.guid
     let payload = []
-    db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+    db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error fetching UID:", err);
             res.status(404).json({ success: false });
             return;
-        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+        } else if (row.expires < Math.floor(Date.now() / 1000)) {
             console.error("Error fetching UID: Token expired");
             res.status(401).json({ success: false });
             return;
@@ -712,12 +712,12 @@ app.post('/replay/', replay.single('replay-data'), (req, res) => {
     console.log(req.body)
     console.log(req.file)
     const token = req.headers['x-access-jsonwebtoken']
-    db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+    db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error fetching UID:", err);
             res.status(404).json({ success: false });
             return;
-        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+        } else if (row.expires < Math.floor(Date.now() / 1000)) {
             console.error("Error fetching UID: Token expired");
             res.status(401).json({ success: false });
             return;
@@ -869,12 +869,12 @@ app.get('/social/profile/', (req, res) => {
     console.log(req.query)
     const token = req.headers['x-access-jsonwebtoken']
     db.serialize(() => {
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
@@ -884,7 +884,7 @@ app.get('/social/profile/', (req, res) => {
                     jsondata = JSON.parse(row.json);
                     let payload = [{
                         "platform-id": "epic-id",
-                        "player-id": row.uid,
+                        "player-id": uid,
                         "profile-color": jsondata["profile-color"],
                         "profile-rank": 1,
                         "profile-name": jsondata["profile-name"],
@@ -912,12 +912,12 @@ app.get('/state/', (req, res) => {
     console.log("req sent to /state/ TOKEN:", token);
     let jsondata;
     db.serialize(() => {
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
@@ -975,7 +975,7 @@ app.post('/state/', (req, res) => {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
@@ -1147,7 +1147,7 @@ app.get('/tournaments/', (req, res) => {
 app.get('/leaderboards/user/', (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
     console.log(req.query)
-    db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+    db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error uid FROM user:", err);
             res.status(400).json({ success: false });
@@ -1185,12 +1185,12 @@ app.get('/leaderboards/user/', (req, res) => {
 
 app.post('/leaderboards/user/reset/', express.urlencoded({ extended: true }), (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
-    db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+    db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error uid FROM user:", err);
             res.status(500).json({ success: false });
             return;
-        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+        } else if (row.expires < Math.floor(Date.now() / 1000)) {
             console.error("Error fetching UID: Token expired");
             res.status(401).json({ success: false });
             return;
@@ -1229,12 +1229,12 @@ app.post('/leaderboards/user/reset/track/', express.urlencoded({ extended: true 
         sql = `AND track = ?`
         args = [uid, req.body.mapID, req.body.trackID]
     }
-    db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+    db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error uid FROM user:", err);
             res.status(404).json({ success: false });
             return;
-        } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+        } else if (row.expires < Math.floor(Date.now() / 1000)) {
             console.error("Error fetching UID: Token expired");
             res.status(401).json({ success: false });
             return;
@@ -1264,12 +1264,12 @@ app.post('/leaderboards/', (req, res) => {
         const parsed = JSON.parse(decodeURIComponent(raw));
         db.serialize(() => {
             let highscore;
-            db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+            db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
                 if (err || !row) {
                     console.error("Error uid FROM user:", err);
                     res.status(500).json({ success: false });
                     return;
-                } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+                } else if (row.expires < Math.floor(Date.now() / 1000)) {
                     console.error("Error fetching UID: Token expired");
                     res.status(401).json({ success: false });
                     return;
@@ -2136,13 +2136,13 @@ app.get('/experience-points/ranking/', (req, res) => {
     console.log("req sent to /experience-points/ranking/:", req.headers);
     const token = req.headers['x-access-jsonwebtoken'];
     db.serialize(() => {
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is requesting progression");
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
@@ -2204,13 +2204,13 @@ app.get('/experience-points/progression/', (req, res) => {
         "prizes": []
     };
     db.serialize(() => {
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is requesting progression");
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
@@ -2290,13 +2290,13 @@ app.post('/drones/', express.urlencoded({ extended: true }), (req, res) => {
     console.log("req sent to /drones/ headers are: ", req.headers);
     console.log(req.body);
     db.serialize(() => {
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is requesting progression");
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
@@ -2418,13 +2418,13 @@ app.post('/drones/', express.urlencoded({ extended: true }), (req, res) => {
 app.get('/drones/:guid/remove/', (req, res) => {
     const token = req.headers['x-access-jsonwebtoken'];
     db.serialize(() => {
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is deleting a drone");
             if (err || !row) {
                 console.error("Error fetching UID:", err);
                 res.status(404).json({ success: false });
                 return;
-            } else if (row.expires < Math.floor(Date.now() / 1000) + 3600) {
+            } else if (row.expires < Math.floor(Date.now() / 1000)) {
                 console.error("Error fetching UID: Token expired");
                 res.status(401).json({ success: false });
                 return;
