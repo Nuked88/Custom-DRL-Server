@@ -26,6 +26,8 @@ const imageCloud = multer({ storage: image });
 
 const replaydest = multer.diskStorage({
     destination: function (req, file, cb) {
+        const token = req.headers['x-access-jsonwebtoken']
+        console.log(req.headers)
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
                 console.error("Error fetching UID:", err);
@@ -51,10 +53,9 @@ const url = process.env.url || `http://localhost:${PORT}`;
 
 app.use(rateLimit({
     windowMs: 60_000,
-    max: 200
+    max: 500
 }));
 
-//TODO: Add more securty (mainly to post)
 //TODO: finnish maps IE duplicating and stuff
 //TODO: Fix crash dummy data
 //TODO: Get tournaments working ???
@@ -710,6 +711,7 @@ app.post('/replay/', replay.single('replay-data'), (req, res) => {
     console.log(req.query)
     console.log(req.body)
     console.log(req.file)
+    const token = req.headers['x-access-jsonwebtoken']
     db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error fetching UID:", err);
@@ -806,9 +808,9 @@ app.post('/v2/login', (req, res) => {
     req.on('data', c => body += c);
     req.on('end', () => {
         const parsed = querystring.parse(body);
-
+        let decToken;
         try {
-            const decToken = decryptDRL(parsed.token, "09e027edfde3212431a8758576807083", parsed.time.padStart(16, '0'));
+            decToken = decryptDRL(parsed.token, "09e027edfde3212431a8758576807083", parsed.time.padStart(16, '0'));
         } catch (E) {
             console.error("Login Decryption failed:", E);
             res.status(400).json({ success: false });
@@ -923,7 +925,6 @@ app.get('/state/', (req, res) => {
 
                 const uid = row.uid;
                 console.log("UID:", uid);
-
                 db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
                     if (err) {
                         console.error("Error fetching JSON:", err);
@@ -936,12 +937,22 @@ app.get('/state/', (req, res) => {
                         res.status(200).json({ success: true, data: base64Data });
                         return;
                     } else {
+                        let jsondata;
+
                         try {
                             jsondata = JSON.parse(row.json);
-                        } catch {
-                            jsondata = row.json;
+                        } catch (e) {
+                            console.error("Invalid JSON stored in DB:", e);
+                            jsondata = {};
+                            return
                         }
-                        const base64Data = Buffer.from(JSON.stringify(jsondata)).toString('base64');
+
+                        jsondata['profile-developer'] = (uid === "b9365d125935475b8327162c66a25e12");
+
+                        const base64Data = Buffer
+                            .from(JSON.stringify(jsondata))
+                            .toString('base64');
+
                         res.status(200).json({ success: true, data: base64Data });
                     }
                 });
@@ -1251,7 +1262,6 @@ app.post('/leaderboards/', (req, res) => {
     req.on('end', () => {
         const raw = body.startsWith('list=') ? body.slice(5) : body;
         const parsed = JSON.parse(decodeURIComponent(raw));
-        console.log(parsed[0])
         db.serialize(() => {
             let highscore;
             db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
@@ -1287,13 +1297,17 @@ app.post('/leaderboards/', (req, res) => {
                             if (!isNewRow) {
                                 let rep = row.replay_url
                                 let prefix = url + `/replay/${uid}/`
-                                if (rep.startsWith(prefix)) {
-                                    oldReplayfile = rep.substring(prefix.length)
-                                    fs.unlink(path.join("replay", uid, oldReplayfile), (err) => {
-                                        if (err) {
-                                            console.error("Error deleting old replay file:", err);
-                                        }
-                                    });
+                                try {
+                                    if (rep.startsWith(prefix)) {
+                                        oldReplayfile = rep.substring(prefix.length)
+                                        fs.unlink(path.join("replay", uid, oldReplayfile), (err) => {
+                                            if (err) {
+                                                console.error("Error deleting old replay file:", err);
+                                            }
+                                        });
+                                    }
+                                } catch (e) {
+                                    console.log("No old replay")
                                 }
                             }
                             db.get(`SELECT json FROM playerstate WHERE uid = ?`, [uid], (err, row) => {
