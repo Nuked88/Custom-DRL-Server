@@ -28,13 +28,12 @@ const replaydest = multer.diskStorage({
     destination: function (req, res, file, cb) {
         const token = req.headers['x-access-jsonwebtoken']
         console.log(req.headers)
-        db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
+        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
                 console.error("Error fetching UID:", err);
-                res.status(404).json({ success: false });
-                return;
+                return cb(new Error("Invalid token or DB error"));
             }
-            uid = row.uid
+            const uid = row.uid
             fs.mkdirSync('replay/' + uid, { recursive: true });
             cb(null, 'replay/' + uid + "/");
         });
@@ -2436,8 +2435,8 @@ app.get('/drones/:guid/remove/', (req, res) => {
                         res.status(500).json({ success: true });
                         return
                     }
+                    res.status(200).json({ success: true });
                 });
-                res.status(200).json({ success: true });
             }
         });
     });
