@@ -7,7 +7,7 @@ const path = require('path');
 const querystring = require('querystring');
 const db = new sqlite3.Database('main.db');
 const Tracks = require('./tracks.json')
-const Ctracks = require('./Ctracks.json')
+const Ctracks = require('./CtracksC.json')
 
 
 const multer = require('multer');
@@ -16,10 +16,19 @@ const replayCloud = multer({ dest: 'replay-cloud/' });
 
 const image = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'image-cloud/');
+        const token = req.headers['x-access-jsonwebtoken']
+        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+            if (err || !row) {
+                console.error("Error fetching UID:", err);
+                return cb(new Error("Invalid token or DB error"));
+            }
+            const uid = row.uid
+            fs.mkdirSync('image-cloud/' + uid, { recursive: true });
+            cb(null, 'image-cloud/' + uid + "/");
+        });
     },
     filename: function (req, file, cb) {
-        cb(null, file.fieldname + '-' + Date.now() + ".jpg");
+        cb(null, crypto.randomUUID() + `.png`);
     }
 });
 const imageCloud = multer({ storage: image });
@@ -27,7 +36,6 @@ const imageCloud = multer({ storage: image });
 const replaydest = multer.diskStorage({
     destination: function (req, file, cb) {
         const token = req.headers['x-access-jsonwebtoken']
-        console.log(req.headers)
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
                 console.error("Error fetching UID:", err);
@@ -52,7 +60,7 @@ const url = process.env.url || `http://localhost:${PORT}`;
 
 app.use(rateLimit({
     windowMs: 60_000,
-    max: 120
+    max: 1000
 }));
 
 //TODO: finnish maps IE duplicating and stuff
@@ -198,7 +206,7 @@ db.serialize(() => {
         weekend TEXT
         );`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS communitytracks (
+    db.run(`CREATE TABLE IF NOT EXISTS Tracks (
             guid TEXT UNIQUE,
             root TEXT,
             prefs TEXT,
@@ -281,6 +289,7 @@ app.post('/maps/:guid/duplicate', express.urlencoded({ extended: false }), (req,
 app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /maps/ via POST")
+    console.log(req.body)
     db.serialize(() => {
         db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
@@ -559,7 +568,7 @@ app.get('/maps/:guid', (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /maps/ for guid:", req.params.guid)
     const guid = req.params.guid
-    let payload = []
+    let payload = Ctracks.filter(track => track.guid === guid);
     db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error fetching UID:", err);
@@ -763,12 +772,12 @@ app.post('/storage/image/', imageCloud.single('file'), (req, res) => {
     console.log(req.query)
     console.log(req.body);
     console.log(req.file);
-    res.status(200).json({ success: true, data: url + `/image-cloud/${req.file.filename}` });
+    res.status(200).json({ success: true, data: url + "/" + req.file.path.replace(/\\/g, '/') });
 })
 
-app.get('/image-cloud/:id', (req, res) => {
+app.get('/image-cloud/:uid/:id', (req, res) => {
     const safeId = path.basename(req.params.id);
-    const filePath = path.join(__dirname, 'image-cloud', safeId);
+    const filePath = path.join(__dirname, 'image-cloud', req.params.uid, safeId);
 
     if (!fs.existsSync(filePath)) {
         return res.status(404).end();
@@ -2492,6 +2501,7 @@ app.get('/drones/', (req, res) => {
                     "physics-data": JSON.parse(row[i].physics_data),
                 }
                 data.push(dat);
+                console.log(dat)
             }
         }
         res.status(200).json({
