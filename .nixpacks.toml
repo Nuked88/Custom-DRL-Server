@@ -1,5 +1,22 @@
-[packages]
-python3 = "latest"
-make = "latest"
-gcc = "latest"
-g++ = "latest"
+[phases.setup]
+# nothing needed here
+
+[phases.install]
+packages = [
+  "python3",
+  "python3Packages.python3",
+  "make",
+  "gcc",
+  "g++"
+]
+
+[phases.build]
+# This runs npm ci in the build phase
+commands = [
+  "npm ci"
+]
+
+[phases.start]
+commands = [
+  "node index.js" # replace with your actual entrypoint
+]
