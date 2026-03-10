@@ -60,6 +60,7 @@ app.use(rateLimit({
 //TODO: Get tournaments working ???
 //TODO: Better logging and error handling IE 500 res if the db fails
 //TODO: Make it look better
+//TODO: Better documentation
 
 
 /*
@@ -372,6 +373,8 @@ app.get('/tracks/:id', (req, res) => {
     res.sendFile(filePath);
 });
 
+
+//TODO: WHAT DID THIS DO?
 /*
 app.get('/maps/:guid', (req, res) => {
     const guid = req.params.guid;
@@ -393,6 +396,8 @@ app.get('/maps/:guid', (req, res) => {
     });
 });
 */
+
+// TODO: Make own json just for this ()
 app.get('/progression/maps/', (req, res) => {
     let progressionMaps = [
     ];
