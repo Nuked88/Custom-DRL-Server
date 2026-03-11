@@ -58,10 +58,12 @@ const app = express();
 const PORT = process.env.port || 8080;
 const url = process.env.url || `http://localhost:${PORT}`;
 
+/*
 app.use(rateLimit({
     windowMs: 60_000,
     max: 1000
 }));
+*/
 
 //TODO: finnish maps IE duplicating and stuff
 //TODO: Fix crash dummy data
@@ -207,7 +209,7 @@ db.serialize(() => {
         weekend TEXT
         );`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS Tracks (
+    db.run(`CREATE TABLE IF NOT EXISTS communitytracks (
             guid TEXT UNIQUE,
             root TEXT,
             prefs TEXT,
@@ -352,7 +354,7 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
                         req.body["is-race-allowed"],
                         uid,
                         jsondata["profile-name"],
-                        url + `/tracks/${req.body.guid}`,
+                        `/tracks/${req.body.guid}`,
                         req.body["map-difficulty"],
                         req.body["map-lighting"],
                         req.body["is-public"],
@@ -464,7 +466,7 @@ app.get('/maps/user/updated/', (req, res) => {
                         guid: row[i].guid,
                         root: row[i].root,
                         prefs: row[i].prefs,
-                        "full-track-url": row[i].full_track_url,
+                        "full-track-url": url + row[i].full_track_url,
                         "allow-copy": row[i].allow_copy ? true : false,
                         "base-assets-enabled": false,
                         "exclusive-by-platform": [],
@@ -596,7 +598,7 @@ app.get('/maps/:guid', (req, res) => {
                             guid: row[i].guid,
                             root: row[i].root,
                             prefs: row[i].prefs,
-                            "full-track-url": row[i].full_track_url,
+                            "full-track-url": url + row[i].full_track_url,
                             "allow-copy": row[i].allow_copy ? true : false,
                             "base-assets-enabled": false,
                             "exclusive-by-platform": [],
@@ -656,7 +658,7 @@ app.get('/maps/', (req, res) => {
                     guid: row[i].guid,
                     root: row[i].root,
                     prefs: row[i].prefs,
-                    "full-track-url": row[i].full_track_url,
+                    "full-track-url": url + row[i].full_track_url,
                     "allow-copy": row[i].allow_copy ? true : false,
                     "base-assets-enabled": false,
                     "exclusive-by-platform": [],
@@ -746,7 +748,7 @@ app.post('/replay/', replay.single('replay-data'), (req, res) => {
                         ORDER BY updated_at DESC
                         LIMIT 1
                     )`,
-                [url + '/replay/' + uid + '/' + req.file.filename, uid],
+                ['/replay/' + uid + '/' + req.file.filename, uid],
                 function (err) {
 
                     if (err) {
@@ -777,7 +779,7 @@ app.post('/storage/image/', imageCloud.single('file'), (req, res) => {
     console.log(req.query)
     console.log(req.body);
     console.log(req.file);
-    res.status(200).json({ success: true, data: url + "/" + req.file.path.replace(/\\/g, '/') });
+    res.status(200).json({ success: true, data: "/" + req.file.path.replace(/\\/g, '/') });
 })
 
 app.get('/image-cloud/:uid/:id', (req, res) => {
@@ -1309,7 +1311,7 @@ app.post('/leaderboards/', (req, res) => {
                         if (isBetterScore || isNewRow) {
                             if (!isNewRow) {
                                 let rep = row.replay_url
-                                let prefix = url + `/replay/${uid}/`
+                                let prefix = `/replay/${uid}/`
                                 try {
                                     if (rep.startsWith(prefix)) {
                                         oldReplayfile = rep.substring(prefix.length)
@@ -1563,7 +1565,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                                 "mission": row[i].mission,
                                 "group-id": row[i].group_id,
                                 "region": row[i].region,
-                                "replay-url": row[i].replay_url,
+                                "replay-url": url + row[i].replay_url,
                                 "game-type": row[i].game_type,
                                 "drone-thumb": row[i].drone_thumb,
                                 "multiplayer": row[i].multiplayer,
@@ -1625,7 +1627,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                                 "mission": row[i].mission,
                                 "group-id": row[i].group_id,
                                 "region": row[i].region,
-                                "replay-url": row[i].replay_url,
+                                "replay-url": url + row[i].replay_url,
                                 "game-type": row[i].game_type,
                                 "drone-thumb": row[i].drone_thumb,
                                 "multiplayer": row[i].multiplayer,
@@ -1687,7 +1689,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                                 "mission": row[i].mission,
                                 "group-id": row[i].group_id,
                                 "region": row[i].region,
-                                "replay-url": row[i].replay_url,
+                                "replay-url": url + row[i].replay_url,
                                 "game-type": row[i].game_type,
                                 "drone-thumb": row[i].drone_thumb,
                                 "multiplayer": row[i].multiplayer,
@@ -1751,7 +1753,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                                 "mission": row[i].mission,
                                 "group-id": row[i].group_id,
                                 "region": row[i].region,
-                                "replay-url": row[i].replay_url,
+                                "replay-url": url + row[i].replay_url,
                                 "game-type": row[i].game_type,
                                 "drone-thumb": row[i].drone_thumb,
                                 "multiplayer": row[i].multiplayer,
@@ -1813,7 +1815,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                                 "mission": row[i].mission,
                                 "group-id": row[i].group_id,
                                 "region": row[i].region,
-                                "replay-url": row[i].replay_url,
+                                "replay-url": url + row[i].replay_url,
                                 "game-type": row[i].game_type,
                                 "drone-thumb": row[i].drone_thumb,
                                 "multiplayer": row[i].multiplayer,
@@ -1876,7 +1878,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                                 "mission": row[i].mission,
                                 "group-id": row[i].group_id,
                                 "region": row[i].region,
-                                "replay-url": row[i].replay_url,
+                                "replay-url": url + row[i].replay_url,
                                 "game-type": row[i].game_type,
                                 "drone-thumb": row[i].drone_thumb,
                                 "multiplayer": row[i].multiplayer,
@@ -1987,7 +1989,7 @@ app.get('/leaderboards/', (req, res) => {
                                 "mission": row[i].mission,
                                 "group-id": row[i].group_id,
                                 "region": row[i].region,
-                                "replay-url": row[i].replay_url,
+                                "replay-url": url + row[i].replay_url,
                                 "game-type": row[i].game_type,
                                 "drone-thumb": row[i].drone_thumb,
                                 "multiplayer": row[i].multiplayer,
@@ -2075,7 +2077,7 @@ app.get('/leaderboards/', (req, res) => {
                                 "mission": row[i].mission,
                                 "group-id": row[i].group_id,
                                 "region": row[i].region,
-                                "replay-url": row[i].replay_url,
+                                "replay-url": url + row[i].replay_url,
                                 "game-type": row[i].game_type,
                                 "drone-thumb": row[i].drone_thumb,
                                 "multiplayer": row[i].multiplayer,
@@ -2485,7 +2487,7 @@ app.get('/drones/', (req, res) => {
                     "score": row[i].score,
                     "rating": row[i].rating,
                     "rating-count": row[i].rating_count,
-                    "thumb-url": row[i].thumb_url,
+                    "thumb-url": url + row[i].thumb_url,
                     "name": row[i].name,
                     "is-public": row[i].is_public,
                     "is-official": row[i].is_official,

@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "RunFirst": "node CTracksIntoDB.js && node index.js",
+    "Run": "node index.js"
   },
   "repository": {
     "type": "git",
