@@ -7,7 +7,6 @@ const path = require('path');
 const querystring = require('querystring');
 const db = new sqlite3.Database('main.db');
 const Tracks = require('./tracks.json')
-const Ctracks = require('./CtracksC.json')
 
 
 const multer = require('multer');
@@ -575,7 +574,7 @@ app.get('/maps/:guid', (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /maps/ for guid:", req.params.guid)
     const guid = req.params.guid
-    let payload = Ctracks.filter(track => track.guid === guid);
+    let payload = []
     db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
         if (err || !row) {
             console.error("Error fetching UID:", err);
@@ -595,45 +594,59 @@ app.get('/maps/:guid', (req, res) => {
                 } else {
                     for (let i = 0; i < row.length; i++) {
                         let data = {
-                            guid: row[i].guid,
-                            root: row[i].root,
-                            prefs: row[i].prefs,
-                            "full-track-url": url + row[i].full_track_url,
-                            "allow-copy": row[i].allow_copy ? true : false,
-                            "base-assets-enabled": false,
-                            "exclusive-by-platform": [],
+                            "guid": row[i].guid,
+                            "root": row[i].root,
+                            "prefs": row[i].prefs,
+                            "allow-copy": row[i].allow_copy,
+                            "base-assets-enabled": row[i].base_assets_enabled,
+                            "exclusive-by-platform": row[i].exclusive_by_platform,
                             "is-race-allowed": row[i].is_race_allowed,
-                            "is-public": row[i].is_public ? true : false,
-                            "is-public-for-drlpilots": false,
-                            "is-drl-official": true,
-                            "is-featured": false,
-                            "is-multigp": false,
-                            "is-tryouts": false,
-                            "is-virtual-season": false,
-                            "map-category": "MapCommon",
-                            "map-difficulty": 3,
-                            "map-distance": 641.2644,
-                            "map-dirty": true,
+                            "is-public": row[i].is_public,
+                            "is-public-for-drlpilots": row[i].is_public_for_drlpilots,
+                            "is-drl-official": row[i].is_drl_official,
+                            "is-featured": row[i].is_featured,
+                            "is-multigp": row[i].is_multigp,
+                            "is-tryouts": row[i].is_tryouts,
+                            "is-virtual-season": row[i].is_virtual_season,
+                            "map-category": row[i].map_category,
+                            "map-difficulty": row[i].map_difficulty,
+                            "map-distance": row[i].map_distance,
+                            "map-dirty": row[i].map_dirty,
                             "map-lighting": row[i].map_lighting,
-                            "map-laps": 2,
+                            "map-laps": row[i].map_laps,
                             "map-stats-triangle-count": row[i].map_stats_triangle_count,
-                            "map-stats-object-count": 1113,
-                            "prefs-auto-save": true,
-                            "track-id": "freestyle",
-                            "xp-value": 0,
-                            "xp-min-time": 0,
-                            "cm-collectable-count": 0,
-                            "collaborators": [],
+                            "map-stats-object-count": row[i].map_stats_object_count,
+                            "map-asset-layers": row[i].map_asset_layers,
+                            "map-styles": row[i].map_styles,
+                            "categories": row[i].categories,
+                            "prefs-auto-save": row[i].prefs_auto_save,
+                            "rating-count": row[i].rating_count,
+                            "score": row[i].score,
+                            "track-id": row[i].track_id,
+                            "xp-value": row[i].xp_value,
+                            "xp-min-time": row[i].xp_min_time,
+                            "cm-collectable-count": row[i].cm_collectable_count,
+                            "collaborators": row[i].collaborators,
                             "map-mode-type": row[i].map_mode_type,
                             "map-id": row[i].map_id,
                             "map-title": row[i].map_title,
+                            "steam-id": row[i].steam_id,
+                            "created-at": row[i].created_at,
+                            "updated-at": row[i].updated_at,
+                            "version": row[i].version,
+                            "title-translations": row[i].title_translations,
+                            "images": row[i].images,
                             "map-thumb": row[i].map_thumb,
                             "avatar": row[i].avatar,
                             "player-id": row[i].player_id,
                             "profile-name": row[i].profile_name,
-                        }
-                        for (let E = 0; E < row[i].root.length; E++) {
-                            console.log(row[i].root[E])
+                            "profile-thumb": row[i].profile_thumb,
+                            "profile-color": row[i].profile_color,
+                            "profile-platform": row[i].profile_platform,
+                            "profile-platform-id": row[i].profile_platform_id,
+                            "flag-url": row[i].flag_url,
+                            "is-avatar-blocked": row[i].is_avatar_blocked,
+                            "full-track-url": row[i].full_track_url
                         }
                         payload.push(data);
                     }
@@ -646,51 +659,66 @@ app.get('/maps/:guid', (req, res) => {
 
 app.get('/maps/', (req, res) => {
     console.log("req sent to /maps/ headers are: ", req.headers);
-    let payload = Array.isArray(Ctracks)
-        ? [...Ctracks]
-        : [];
+    let payload = []
     db.all(`SELECT * FROM communitytracks`, (err, row) => {
         if (err) {
             console.error("Error fetching community tracks:", err);
         } else {
             for (let i = 0; i < row.length; i++) {
                 let data = {
-                    guid: row[i].guid,
-                    root: row[i].root,
-                    prefs: row[i].prefs,
-                    "full-track-url": url + row[i].full_track_url,
-                    "allow-copy": row[i].allow_copy ? true : false,
-                    "base-assets-enabled": false,
-                    "exclusive-by-platform": [],
+                    "guid": row[i].guid,
+                    "root": row[i].root,
+                    "prefs": row[i].prefs,
+                    "allow-copy": row[i].allow_copy,
+                    "base-assets-enabled": row[i].base_assets_enabled,
+                    "exclusive-by-platform": row[i].exclusive_by_platform,
                     "is-race-allowed": row[i].is_race_allowed,
-                    "is-public": row[i].is_public ? true : false,
-                    "is-public-for-drlpilots": false,
-                    "is-drl-official": true,
-                    "is-featured": false,
-                    "is-multigp": false,
-                    "is-tryouts": false,
-                    "is-virtual-season": false,
-                    "map-category": "MapCommon",
+                    "is-public": row[i].is_public,
+                    "is-public-for-drlpilots": row[i].is_public_for_drlpilots,
+                    "is-drl-official": row[i].is_drl_official,
+                    "is-featured": row[i].is_featured,
+                    "is-multigp": row[i].is_multigp,
+                    "is-tryouts": row[i].is_tryouts,
+                    "is-virtual-season": row[i].is_virtual_season,
+                    "map-category": row[i].map_category,
                     "map-difficulty": row[i].map_difficulty,
                     "map-distance": row[i].map_distance,
-                    "map-dirty": true,
+                    "map-dirty": row[i].map_dirty,
                     "map-lighting": row[i].map_lighting,
-                    "map-laps": 2,
+                    "map-laps": row[i].map_laps,
                     "map-stats-triangle-count": row[i].map_stats_triangle_count,
-                    "map-stats-object-count": 1113,
-                    "prefs-auto-save": true,
-                    "track-id": "freestyle",
-                    "xp-value": 0,
-                    "xp-min-time": 0,
+                    "map-stats-object-count": row[i].map_stats_object_count,
+                    "map-asset-layers": row[i].map_asset_layers,
+                    "map-styles": row[i].map_styles,
+                    "categories": row[i].categories,
+                    "prefs-auto-save": row[i].prefs_auto_save,
+                    "rating-count": row[i].rating_count,
+                    "score": row[i].score,
+                    "track-id": row[i].track_id,
+                    "xp-value": row[i].xp_value,
+                    "xp-min-time": row[i].xp_min_time,
                     "cm-collectable-count": row[i].cm_collectable_count,
-                    "collaborators": [],
+                    "collaborators": row[i].collaborators,
                     "map-mode-type": row[i].map_mode_type,
                     "map-id": row[i].map_id,
                     "map-title": row[i].map_title,
+                    "steam-id": row[i].steam_id,
+                    "created-at": row[i].created_at,
+                    "updated-at": row[i].updated_at,
+                    "version": row[i].version,
+                    "title-translations": row[i].title_translations,
+                    "images": row[i].images,
                     "map-thumb": row[i].map_thumb,
                     "avatar": row[i].avatar,
                     "player-id": row[i].player_id,
                     "profile-name": row[i].profile_name,
+                    "profile-thumb": row[i].profile_thumb,
+                    "profile-color": row[i].profile_color,
+                    "profile-platform": row[i].profile_platform,
+                    "profile-platform-id": row[i].profile_platform_id,
+                    "flag-url": row[i].flag_url,
+                    "is-avatar-blocked": row[i].is_avatar_blocked,
+                    "full-track-url": row[i].full_track_url
                 }
                 payload.push(data);
             }
