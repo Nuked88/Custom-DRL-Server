@@ -57,17 +57,16 @@ const app = express();
 const PORT = process.env.port || 8080;
 const url = process.env.url || `http://localhost:${PORT}`;
 
-/*
+
 app.use(rateLimit({
     windowMs: 60_000,
     max: 1000
 }));
-*/
+
 
 //TODO: finnish maps IE duplicating and stuff
 //TODO: Fix crash dummy data
 //TODO: Get tournaments working ???
-//TODO: Better logging and error handling IE 500 res if the db fails
 //TODO: Make it look better
 //TODO: Better documentation
 
