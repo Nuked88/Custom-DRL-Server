@@ -277,14 +277,17 @@ db.serialize(() => {
 */
 
 app.post('/maps/:guid/duplicate', express.urlencoded({ extended: false }), (req, res) => {
-    const safeId = path.basename(req.params.guid);
-    const filePath = path.join(__dirname, 'tracks', safeId + '.cmp');
+    const baseDir = path.join(__dirname, 'tracks');
+    const finalPath = path.resolve(baseDir, req.params.guid + '.cmp');
 
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).end();
+    if (!finalPath.startsWith(baseDir)) {
+        return res.status(403).send('Forbidden: Invalid path');
     }
 
-    res.sendFile(filePath);
+    if (!fs.existsSync(finalPath)) {
+        return res.status(404).end();
+    }
+    res.sendFile(finalPath);
 });
 
 app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
@@ -372,14 +375,17 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
 
 //path for track downloads
 app.get('/tracks/:id', (req, res) => {
-    const safeId = path.basename(req.params.id);
-    const filePath = path.join(__dirname, 'tracks', safeId + '.cmp');
+    const baseDir = path.join(__dirname, 'tracks');
+    const finalPath = path.resolve(baseDir, req.params.id + '.cmp');
 
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).end();
+    if (!finalPath.startsWith(baseDir)) {
+        return res.status(403).send('Forbidden: Invalid path');
     }
 
-    res.sendFile(filePath);
+    if (!fs.existsSync(finalPath)) {
+        return res.status(404).end();
+    }
+    res.sendFile(finalPath);
 });
 
 
@@ -517,8 +523,9 @@ app.get('/maps/:guid/remove/', (req, res) => {
     console.log("req sent to /maps/:guid/remove/ for guid:", req.params.guid)
 
 
-    const safeId = path.basename(req.params.guid);
-    const filePath = path.join(__dirname, 'tracks', safeId + '.cmp');
+    const baseDir = path.join(__dirname, 'tracks');
+    const finalPath = path.resolve(baseDir, req.params.guid + '.cmp');
+
     db.serialize(() => {
         db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is requesting progression");
@@ -540,7 +547,7 @@ app.get('/maps/:guid/remove/', (req, res) => {
                     } else {
                         if (row.player_id == uid) {
                             try {
-                                fs.unlinkSync(filePath);
+                                fs.unlinkSync(finalPath);
                                 console.log('File deleted synchronously successfully');
                             } catch (err) {
                                 console.error('Error deleting file synchronously:', err);
@@ -810,26 +817,31 @@ app.post('/storage/image/', imageCloud.single('file'), (req, res) => {
 })
 
 app.get('/image-cloud/:uid/:id', (req, res) => {
-    const safeId = path.basename(req.params.id);
-    const filePath = path.join(__dirname, 'image-cloud', req.params.uid, safeId);
-
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).end();
+    const baseDir = path.join(__dirname, 'image-cloud');
+    const finalPath = path.resolve(baseDir, req.params.uid, path.basename(req.params.id));
+    if (!finalPath.startsWith(baseDir)) {
+        return res.status(403).send('Forbidden: Invalid path');
     }
 
-    res.sendFile(filePath);
+    if (!fs.existsSync(finalPath)) {
+        return res.status(404).end();
+    }
+    res.sendFile(finalPath);
 });
 
 
 app.get('/replay/:uid/:guid', (req, res) => {
-    const safeId = path.basename(req.params.guid);
-    const filePath = path.join(__dirname, 'replay', req.params.uid, safeId);
+    const baseDir = path.join(__dirname, 'replay');
+    const finalPath = path.resolve(baseDir, req.params.uid, path.basename(req.params.guid));
 
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).end();
+    if (!finalPath.startsWith(baseDir)) {
+        return res.status(403).send('Forbidden: Invalid path');
     }
 
-    res.sendFile(filePath);
+    if (!fs.existsSync(finalPath)) {
+        return res.status(404).end();
+    }
+    res.sendFile(finalPath);
 });
 
 
