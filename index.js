@@ -70,7 +70,7 @@ const replay = multer({ storage: replaydest });
 
 
 const app = express();
-const PORT = process.env.PORT  || 8080;
+const PORT = process.env.PORT || 8080;
 const url = process.env.URL || `http://localhost:${PORT}`;
 
 
@@ -339,7 +339,13 @@ app.post('/maps/', express.urlencoded({ extended: false }), (req, res) => {
                         "data": [req.body]
                     }
                 }
-                fs.writeFile('tracks/' + req.body.guid + '.cmp', JSON.stringify(payload), err => {
+                const baseDir = path.join(__dirname, 'tracks');
+                const finalPath = path.resolve(baseDir, req.params.guid + '.cmp');
+
+                if (!finalPath.startsWith(baseDir)) {
+                    return res.status(403).send('Forbidden: Invalid path');
+                }
+                fs.writeFile(finalPath, JSON.stringify(payload), err => {
                     if (err) {
                         console.error(err);
                     } else {
@@ -541,6 +547,10 @@ app.get('/maps/:guid/remove/', (req, res) => {
 
     const baseDir = path.join(__dirname, 'tracks');
     const finalPath = path.resolve(baseDir, req.params.guid + '.cmp');
+
+    if (!finalPath.startsWith(baseDir)) {
+        return res.status(403).send('Forbidden: Invalid path');
+    }
 
     db.serialize(() => {
         db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
@@ -835,6 +845,7 @@ app.post('/storage/image/', imageCloud.single('file'), (req, res) => {
 app.get('/image-cloud/:uid/:id', (req, res) => {
     const baseDir = path.join(__dirname, 'image-cloud');
     const finalPath = path.resolve(baseDir, req.params.uid, path.basename(req.params.id));
+
     if (!finalPath.startsWith(baseDir)) {
         return res.status(403).send('Forbidden: Invalid path');
     }
