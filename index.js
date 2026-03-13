@@ -573,7 +573,7 @@ app.get('/maps/:guid/remove/', (req, res) => {
                     } else {
                         if (row.player_id == uid) {
                             try {
-                                fs.unlinkSync(finalPath);
+                                fs.unlinkSync(fs.realpathSync(finalPath));
                                 console.log('File deleted synchronously successfully');
                             } catch (err) {
                                 console.error('Error deleting file synchronously:', err);
