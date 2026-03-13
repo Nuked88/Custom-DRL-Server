@@ -544,14 +544,6 @@ app.get('/maps/:guid/remove/', (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
     console.log("req sent to /maps/:guid/remove/ for guid:", req.params.guid)
 
-
-    const baseDir = path.join(__dirname, 'tracks');
-    const finalPath = path.resolve(baseDir, req.params.guid + '.cmp');
-
-    if (!finalPath.startsWith(baseDir)) {
-        return res.status(403).send('Forbidden: Invalid path');
-    }
-
     db.serialize(() => {
         db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
             console.log("Player", row ? row.uid : "unknown", "is requesting progression");
@@ -573,6 +565,12 @@ app.get('/maps/:guid/remove/', (req, res) => {
                     } else {
                         if (row.player_id == uid) {
                             try {
+                                const baseDir = path.join(__dirname, 'tracks');
+                                const finalPath = path.resolve(baseDir, req.params.guid + '.cmp');
+
+                                if (!finalPath.startsWith(baseDir)) {
+                                    return res.status(403).send('Forbidden: Invalid path');
+                                }
                                 fs.unlinkSync(fs.realpathSync(finalPath));
                                 console.log('File deleted synchronously successfully');
                             } catch (err) {
