@@ -5,12 +5,28 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const querystring = require('querystring');
-const db = new sqlite3.Database('main.db');
-const Tracks = require('./tracks.json')
+
+const db = new sqlite3.Database('main.db', err => {
+    if (err) {
+        console.error("SQLite open error:", err);
+    } else {
+        console.log("SQLite database connected");
+    }
+});
+
+const Tracks = require(path.join(__dirname, 'tracks.json'));
 
 
 const multer = require('multer');
 const replayCloud = multer({ dest: 'replay-cloud/' });
+
+process.on("uncaughtException", err => {
+    console.error("UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", err => {
+    console.error("UNHANDLED REJECTION:", err);
+});
 
 
 const image = multer.diskStorage({
@@ -54,8 +70,8 @@ const replay = multer({ storage: replaydest });
 
 
 const app = express();
-const PORT = process.env.port || 8080;
-const url = process.env.url || `http://localhost:${PORT}`;
+const PORT = process.env.PORT  || 8080;
+const url = process.env.URL || `http://localhost:${PORT}`;
 
 
 app.use(rateLimit({
