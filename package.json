@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "RunFirst": "node CTracksIntoDB.js && node index.js",
+    "Run": "node index.js"
   },
   "repository": {
     "type": "git",
@@ -21,9 +22,9 @@
   "dependencies": {
     "crypto-js": "^4.2.0",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
-    "multer": "^2.0.2",
-    "sqlite3": "^5.1.7",
+    "express-rate-limit": "^8.2.2",
+    "multer": "^2.1.1",
+    "sqlite3": "^6.0.1",
     "unique-username-generator": "^1.5.1",
     "uuid": "^13.0.0"
   }
