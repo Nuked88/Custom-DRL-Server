@@ -16,7 +16,7 @@ def xor_file(input_file, output_file):
 
 
 
-directory_path = Path('maps/')
+directory_path = Path('./')
 directory_Out_path = Path('mapss/')
 
 os.mkdir(directory_Out_path)
