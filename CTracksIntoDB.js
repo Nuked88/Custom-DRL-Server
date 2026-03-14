@@ -60,6 +60,10 @@ db.serialize(() => {
             );`);
 });
 
+function toJSON(value) {
+    if (typeof value === "string") return value;
+    return JSON.stringify(value);
+}
 
 for (let i = 0; i < Ctracks.length; i++) {
     const track = Ctracks[i];
@@ -124,11 +128,11 @@ for (let i = 0; i < Ctracks.length; i++) {
 
     stmt.run(
         track.guid,
-        JSON.stringify(track.root),
-        track.prefs,
+        toJSON(track.root),
+        toJSON(track.prefs),
         track["allow-copy"],
         track["base-assets-enabled"],
-        JSON.stringify(track["exclusive-by-platform"]),
+        toJSON(track["exclusive-by-platform"]),
         track["is-race-allowed"],
         track["is-public"],
         track["is-public-for-drlpilots"],
@@ -145,9 +149,9 @@ for (let i = 0; i < Ctracks.length; i++) {
         track["map-laps"],
         track["map-stats-triangle-count"],
         track["map-stats-object-count"],
-        JSON.stringify(track["map-asset-layers"]),
-        JSON.stringify(track["map-styles"]),
-        JSON.stringify(track["categories"]),
+        toJSON(track["map-asset-layers"]),
+        toJSON(track["map-styles"]),
+        toJSON(track["categories"]),
         track["prefs-auto-save"],
         track["rating-count"],
         track["score"],
@@ -155,7 +159,7 @@ for (let i = 0; i < Ctracks.length; i++) {
         track["xp-value"],
         track["xp-min-time"],
         track["cm-collectable-count"],
-        JSON.stringify(track["collaborators"]),
+        toJSON(track["collaborators"]),
         track["map-mode-type"],
         track["map-id"],
         track["map-title"],
@@ -163,8 +167,8 @@ for (let i = 0; i < Ctracks.length; i++) {
         track["created-at"],
         track["updated-at"],
         track["version"],
-        JSON.stringify(track["title-translations"]),
-        JSON.stringify(track["images"]),
+        toJSON(track["title-translations"]),
+        toJSON(track["images"]),
         track["map-thumb"],
         track["avatar"],
         track["player-id"],
