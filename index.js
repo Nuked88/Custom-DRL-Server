@@ -100,6 +100,7 @@ app.use(rateLimit({
 
 db.serialize(() => {
     db.run("CREATE TABLE IF NOT EXISTS user (uid TEXT UNIQUE, token TEXT, expires INTEGER, name TEXT)");
+    db.run("CREATE TABLE IF NOT EXISTS trackupdates (uid TEXT UNIQUE, tracks TEXT)");
     db.run("CREATE TABLE IF NOT EXISTS playerstate (uid TEXT UNIQUE, json TEXT)");
     db.run(`CREATE TABLE IF NOT EXISTS leaderboard (
     player_id TEXT NOT NULL,
@@ -278,7 +279,7 @@ db.serialize(() => {
             is_avatar_blocked BOOLEAN,
             full_track_url TEXT
             );`);
-    //db.run("DROP TABLE communitytracks")
+    //db.run("DROP TABLE trackupdates")
 });
 
 /*
@@ -458,17 +459,64 @@ app.get('/progression/maps/', (req, res) => {
 
 app.get('/maps/updated/', (req, res) => {
     console.log("req sent to /maps/updated/")
-    const payload = Tracks;
-    res.status(200).json(payload);
-})
+    const token = req.headers['x-access-jsonwebtoken']
+    db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
+        if (err || !row) {
+            console.error("Error fetching UID:", err);
+            res.status(200).json(Tracks);
+            return;
+        } else if (row.expires < Math.floor(Date.now() / 1000)) {
+            console.error("Error fetching UID: Token expired");
+            res.status(401).json({ success: false });
+            return;
+        } else {
+            const uid = row.uid
+            db.get(`SELECT tracks FROM trackupdates WHERE uid = ?`, [uid], (err, row) => {
+                if (err || !row) {
+                    console.error("Error fetching user tracks:", err);
+                    return res.status(200).json(Tracks);
+                }
+                let payload = [];
+                let trackss = JSON.parse(row.tracks);
+                for (i = 0; i < trackss.length; i++) { 
+                    for (e = 0; e < Tracks.length; e++) {
+                        if (trackss[i].guid !== Tracks[e].guid || trackss[i].version !== Tracks[e].version) {
+                            payload.push(Tracks[e]);
+                        }
+                    }
+
+                }
+                res.status(200).json(payload);
+            });
+        }
+    });
+});
 
 
 app.post('/maps/updated/', express.urlencoded({ extended: false }), (req, res) => {
     console.log("req sent to /maps/updated/ via POST")
-    console.log(req.body);
-    console.log(req.headers)
-    res.status(200).json({ success: true });
-})
+    const token = req.headers['x-access-jsonwebtoken']
+    db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
+        if (err || !row) {
+            console.error("Error fetching UID:", err);
+            res.status(404).json({ success: false });
+            return;
+        } else if (row.expires < Math.floor(Date.now() / 1000)) {
+            console.error("Error fetching UID: Token expired");
+            res.status(401).json({ success: false });
+            return;
+        } else {
+            db.run(`INSERT INTO trackupdates (uid, tracks) VALUES (?, ?) ON CONFLICT(uid) DO UPDATE SET tracks = excluded.tracks`, [row.uid, JSON.stringify(req.body)], function (err) {
+                if (err) {
+                    console.error("Error inserting track update:", err);
+                    res.status(500).json({ success: false });
+                } else {
+                    res.status(200).json({ success: true });
+                }
+            });
+        }
+    });
+});
 
 app.get('/maps/user/updated/', (req, res) => {
     const token = req.headers['x-access-jsonwebtoken']
@@ -2387,9 +2435,9 @@ app.get('/experience-points/progression/', (req, res) => {
 -----------------------------------------------------
 */
 
-app.get(`/player/license/`, (req, res) => { 
+app.get(`/player/license/`, (req, res) => {
     console.log("NEW LICENSE REQUEST:", req.headers);
-    const base64Data = Buffer.from(JSON.stringify({exists: true})).toString('base64');
+    const base64Data = Buffer.from(JSON.stringify({ exists: true })).toString('base64');
     res.status(200).json({ success: true, data: base64Data });
 });
 
