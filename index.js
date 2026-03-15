@@ -18,7 +18,6 @@ const Tracks = require(path.join(__dirname, 'tracks.json'));
 
 
 const multer = require('multer');
-const console = require('console');
 const replayCloud = multer({ dest: 'replay-cloud/' });
 
 process.on("uncaughtException", err => {
@@ -466,6 +465,8 @@ app.get('/maps/updated/', (req, res) => {
 
 app.post('/maps/updated/', express.urlencoded({ extended: false }), (req, res) => {
     console.log("req sent to /maps/updated/ via POST")
+    console.log(req.body);
+    console.log(req.headers)
     res.status(200).json({ success: true });
 })
 
@@ -639,7 +640,7 @@ app.get('/maps/', (req, res) => {
     db.all(`SELECT * FROM communitytracks WHERE is_public = 1`, (err, row) => {
         if (err) {
             console.error("Error fetching community tracks:", err);
-            res.status(501).json({ success: false })
+            res.status(500).json({ success: false })
         } else {
             for (let i = 0; i < row.length; i++) {
                 let data = {
@@ -2388,7 +2389,8 @@ app.get('/experience-points/progression/', (req, res) => {
 
 app.get(`/player/license/`, (req, res) => { 
     console.log("NEW LICENSE REQUEST:", req.headers);
-    res.status(200).json({ success: true, data: {exists: true} });
+    const base64Data = Buffer.from(JSON.stringify({exists: true})).toString('base64');
+    res.status(200).json({ success: true, data: base64Data });
 });
 
 /*
