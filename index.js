@@ -1537,8 +1537,7 @@ app.post('/leaderboards/', (req, res) => {
                                 getEndOfLastISOWeek(),
                                 getStartOfNextISOWeek()
                             );
-                            db.all(`SELECT player_id, score FROM leaderboard WHERE map = ? AND track = ? AND diameter = ? AND drl_official = ? ORDER BY score ASC`,
-                                [parsed[0].map, parsed[0].track, parsed[0].diameter, parsed[0]["drl-official"]],
+                            db.all(`SELECT * FROM leaderboard ${query}`, inputs,
                                 (err, rows) => {
                                     if (err) {
                                         console.error(err);
