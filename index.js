@@ -1548,64 +1548,64 @@ app.post('/leaderboards/', (req, res) => {
                                     const position = rows.findIndex(r => r.player_id === uid) + 1;
                                     let data = [
                                         {
-                                            "player-id": row.player_id,
-                                            "map": row.map,
-                                            "track": row.track,
-                                            "diameter": row.diameter,
-                                            "drl-official": row.drl_official,
-                                            "drone-name": row.drone_name,
-                                            "drone-guid": row.drone_guid,
-                                            "profile-platform-id": row.profile_platform_id,
-                                            "username": row.username,
-                                            "profile-color": row.profile_color,
-                                            "profile-thumb": row.profile_thumb,
-                                            "profile-name": row.profile_name,
-                                            "profile-platform": row.profile_platform,
-                                            "is-custom-map": row.is_custom_map,
-                                            "custom-map": row.custom_map,
-                                            "mission": row.mission,
-                                            "group-id": row.group_id,
-                                            "region": row.region,
-                                            "replay-url": url + row.replay_url,
-                                            "game-type": row.game_type,
-                                            "drone-thumb": row.drone_thumb,
-                                            "multiplayer": row.multiplayer,
-                                            "multiplayer-room-id": row.multiplayer_room_id,
-                                            "multiplayer-room-size": row.multiplayer_room_size,
-                                            "multiplayer-player-id": row.multiplayer_player_id,
-                                            "multiplayer-master-id": row.multiplayer_master_id,
-                                            "multiplayer-player-position": row.multiplayer_player_position,
-                                            "flag-url": row.flag_url,
-                                            "score-type": row.score_type,
-                                            "match-id": row.match_id,
-                                            "tryouts": row.tryouts,
-                                            "battery-resistance": row.battery_resistance,
-                                            "controller-type": row.controller_type,
+                                            "player-id": rows[position-1].player_id,
+                                            "map": rows[position-1].map,
+                                            "track": rows[position-1].track,
+                                            "diameter": rows[position-1].diameter,
+                                            "drl-official": rows[position-1].drl_official,
+                                            "drone-name": rows[position-1].drone_name,
+                                            "drone-guid": rows[position-1].drone_guid,
+                                            "profile-platform-id": rows[position-1].profile_platform_id,
+                                            "username": rows[position-1].username,
+                                            "profile-color": rows[position-1].profile_color,
+                                            "profile-thumb": rows[position-1].profile_thumb,
+                                            "profile-name": rows[position-1].profile_name,
+                                            "profile-platform": rows[position-1].profile_platform,
+                                            "is-custom-map": rows[position-1].is_custom_map,
+                                            "custom-map": rows[position-1].custom_map,
+                                            "mission": rows[position-1].mission,
+                                            "group-id": rows[position-1].group_id,
+                                            "region": rows[position-1].region,
+                                            "replay-url": url + rows[position-1].replay_url,
+                                            "game-type": rows[position-1].game_type,
+                                            "drone-thumb": rows[position-1].drone_thumb,
+                                            "multiplayer": rows[position-1].multiplayer,
+                                            "multiplayer-room-id": rows[position-1].multiplayer_room_id,
+                                            "multiplayer-room-size": rows[position-1].multiplayer_room_size,
+                                            "multiplayer-player-id": rows[position-1].multiplayer_player_id,
+                                            "multiplayer-master-id": rows[position-1].multiplayer_master_id,
+                                            "multiplayer-player-position": rows[position-1].multiplayer_player_position,
+                                            "flag-url": rows[position-1].flag_url,
+                                            "score-type": rows[position-1].score_type,
+                                            "match-id": rows[position-1].match_id,
+                                            "tryouts": rows[position-1].tryouts,
+                                            "battery-resistance": rows[position-1].battery_resistance,
+                                            "controller-type": rows[position-1].controller_type,
                                             "position": position,
-                                            "score": row.score,
-                                            "score-check": row.score_check,
-                                            "score-double-check": row.score_double_check,
-                                            "score-cheat": row.score_cheat,
-                                            "score-cheat-ratio": row.score_cheat_ratio,
-                                            "score-cheat-samples": row.score_cheat_samples,
-                                            "crash-count": row.crash_count,
-                                            "top-speed": row.top_speed,
-                                            "time-in-first": row.time_in_first,
-                                            "lap-times": row.lap_times,
-                                            "gate-times": row.gate_times,
-                                            "fastest-lap": row.fastest_lap,
-                                            "slowest-lap": row.slowest_lap,
-                                            "total-distance": row.total_distance,
-                                            "percentile": row.percentile,
-                                            "order-col": row.order_col,
-                                            "high-score": row.high_score,
-                                            "race-id": row.race_id,
-                                            "limit-col": row.limit_col,
-                                            "heat": row.heat,
-                                            "custom-physics": row.custom_physics,
-                                            "drl-pilot-mode": row.drl_pilot_mode,
-                                            "drone-rig": row.drone_rig,
-                                            "drone-hash": row.drone_hash,
+                                            "score": rows[position-1].score,
+                                            "score-check": rows[position-1].score_check,
+                                            "score-double-check": rows[position-1].score_double_check,
+                                            "score-cheat": rows[position-1].score_cheat,
+                                            "score-cheat-ratio": rows[position-1].score_cheat_ratio,
+                                            "score-cheat-samples": rows[position-1].score_cheat_samples,
+                                            "crash-count": rows[position-1].crash_count,
+                                            "top-speed": rows[position-1].top_speed,
+                                            "time-in-first": rows[position-1].time_in_first,
+                                            "lap-times": rows[position-1].lap_times,
+                                            "gate-times": rows[position-1].gate_times,
+                                            "fastest-lap": rows[position-1].fastest_lap,
+                                            "slowest-lap": rows[position-1].slowest_lap,
+                                            "total-distance": rows[position-1].total_distance,
+                                            "percentile": rows[position-1].percentile,
+                                            "order-col": rows[position-1].order_col,
+                                            "high-score": rows[position-1].high_score,
+                                            "race-id": rows[position-1].race_id,
+                                            "limit-col": rows[position-1].limit_col,
+                                            "heat": rows[position-1].heat,
+                                            "custom-physics": rows.custom_physics,
+                                            "drl-pilot-mode": rows.drl_pilot_mode,
+                                            "drone-rig": rows.drone_rig,
+                                            "drone-hash": rows.drone_hash,
                                             "progression": progression,
                                             "high-score": highscore
                                         }
@@ -1640,6 +1640,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
             query = `WHERE map = ? AND track = ? AND diameter = ? AND drl_official = ? `
             inputs = [req.query.map, req.query.track, diameter, drlOfficial]
         }
+        let player_pos = 0
         db.all(`SELECT * FROM leaderboard ` + query + `ORDER BY score ASC`, inputs, (err, row) => {
             if (err || row.length === 0) {
                 console.error("Error fetching leaderboard:", err);
@@ -1659,6 +1660,7 @@ app.get('/leaderboards/rivals/', (req, res) => {
                 row[0].position = 1
                 for (let i = 0; i < row.length; i++) {
                     if (row[i].player_id == uid) {
+                        player_pos = i
                         if (row[i - 1] && row[i + 1]) {
                             i = i - 1
                             let data = {
@@ -2043,9 +2045,9 @@ app.get('/leaderboards/rivals/', (req, res) => {
                     "top": [
                         row[0]
                     ],
-                    "player": 2,
+                    "player": player_pos,
                     "rivals": rivals,
-                    "past": null
+                    "past": null // not needed or used
                 }
                 res.status(200).json({
                     success: true, data: jsondata
