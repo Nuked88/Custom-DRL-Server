@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('main.db');
+const Tracks = require(path.join(__dirname, 'tracks.json'));
 const Ctracks = require('./CtracksC.json')
 
 db.serialize(() => {
@@ -58,6 +59,7 @@ db.serialize(() => {
             is_avatar_blocked BOOLEAN,
             full_track_url TEXT
             );`);
+    db.run("CREATE TABLE IF NOT EXISTS trackcolab (uid TEXT, guid TEXT, PRIMARY KEY (uid, guid))");
 });
 
 function toJSON(value) {
@@ -65,8 +67,10 @@ function toJSON(value) {
     return JSON.stringify(value);
 }
 
-for (let i = 0; i < Ctracks.length; i++) {
-    const track = Ctracks[i];
+const full = Ctracks.concat(Tracks)
+
+for (let i = 0; i < full.length; i++) {
+    const track = full[i];
     const stmt = db.prepare(
         `INSERT INTO communitytracks (
             guid,
@@ -181,6 +185,21 @@ for (let i = 0; i < Ctracks.length; i++) {
         track["is-avatar-blocked"],
         track["full-track-url"]
     );
+
+    db.run(`INSERT OR IGNORE INTO trackcolab (uid, guid) VALUES (?, ?)`, [track["player-id"], track.guid], function (err) {
+        if (err) {
+            console.error("Error inserting into trackcolab:", err);
+        }
+    });
+    stmt.finalize();
+    for (let i = 0; i < track.collaborators.length; i++) {
+        let collaboratorUid = track.collaborators[i]['player-id'];
+        db.run(`INSERT OR IGNORE INTO trackcolab (uid, guid) VALUES (?, ?)`, [collaboratorUid, track.guid], function (err) {
+            if (err) {
+                console.error("Error inserting into trackcolab:", err);
+            }
+        });
+    }
 
     console.log(`Inserted track ${i + 1}/${Ctracks.length}: ${track.guid}`);
 }
