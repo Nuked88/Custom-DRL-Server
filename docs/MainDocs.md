@@ -2,3 +2,5 @@
 - [Login](/docs/Login.md)
 - [Tracks](/docs/Tracks.md)
 - [Storage](/docs/Storage.md)
+- [License](/docs/Licenses.md)
+- [Progression](/docs/Progression.md)

@@ -1,0 +1,2 @@
+# License
+The steam branch of the game (and possibly the xbox and PS4 branches) need to verify if they have a license. This is done by sending a request to ```/player/license/``` all you have to do is send back ```{ exists: true }```.
