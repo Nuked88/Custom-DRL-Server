@@ -1,11 +1,14 @@
-# Instructions
+## Docs
+Docs for Functions and data sent by the game can be found [here](/docs/MainDocs.md)
+
+## Instructions
 > [!WARNING]
 > This is a bit complicated, and untested on the steam branch. A backup of your game files is HEAVILY RECOMMENDED, even if you are on the epic branch.
 
-## Requirements
+### Requirements
 - [Node.js with NPM](https://nodejs.org/en/download)
 
-## Getting Started
+### Getting Started
 > [!NOTE]
 > If you run this on your machine you will only get your own data, IE you will be the only person on the leaderboard
 
@@ -23,10 +26,10 @@ git clone https://github.com/Mr-milky-way/Custom-DRL-Server.git
 ```
 or download from github up at the top here.
 
-## DLL setup
+### DLL setup
 Go over to [this release](https://github.com/Mr-milky-way/Custom-DRL-Server/releases/tag/V1-DLLS) and follow the instructions there
 
-## Running the server
+### Running the server
 
 Go into what ever folder you downloaded this repo into and run it with
 ```

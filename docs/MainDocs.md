@@ -1,0 +1,4 @@
+- [DevMode](/docs/DevMode.md)
+- [Login](/docs/Login.md)
+- [Tracks](/docs/Tracks.md)
+- [Storage](/docs/Storage.md)
