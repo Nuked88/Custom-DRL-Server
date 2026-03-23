@@ -15,7 +15,6 @@ const db = new sqlite3.Database('main.db', err => {
 });
 
 const multer = require('multer');
-const Tracks = require(path.join(__dirname, 'tracks.json'));
 const replayCloud = multer({ dest: 'replay-cloud/' });
 
 process.on("uncaughtException", err => {
@@ -302,16 +301,22 @@ db.serialize(() => {
 ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝    ╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝        ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝
 ----------------------------------------------------------------------------------------------------------------------
 */
-
+function TOJSON(value) {
+    if (!value) return [];
+    if (typeof value === "string") {
+        if ("[]" == value) { return [] } else return JSON.parse(value);
+    }
+    return value;
+}
 
 function mapCTracksqlToJson(row) {
     return {
         "guid": row.guid,
-        "root": JSON.parse(row.root),
-        "prefs": JSON.parse(row.prefs),
+        "root": TOJSON(row.root),
+        "prefs": TOJSON(row.prefs),
         "allow-copy": row.allow_copy,
         "base-assets-enabled": row.base_assets_enabled,
-        "exclusive-by-platform": JSON.parse(row.exclusive_by_platform),
+        "exclusive-by-platform": TOJSON(row.exclusive_by_platform),
         "is-race-allowed": row.is_race_allowed,
         "is-public": row.is_public,
         "is-public-for-drlpilots": row.is_public_for_drlpilots,
@@ -328,9 +333,9 @@ function mapCTracksqlToJson(row) {
         "map-laps": row.map_laps,
         "map-stats-triangle-count": row.map_stats_triangle_count,
         "map-stats-object-count": row.map_stats_object_count,
-        "map-asset-layers": JSON.parse(row.map_asset_layers),
-        "map-styles": JSON.parse(row.map_styles),
-        "categories": JSON.parse(row.categories),
+        "map-asset-layers": TOJSON(row.map_asset_layers),
+        "map-styles": TOJSON(row.map_styles),
+        "categories": TOJSON(row.categories),
         "prefs-auto-save": row.prefs_auto_save,
         "rating-count": row.rating_count,
         "score": row.score,
@@ -338,7 +343,7 @@ function mapCTracksqlToJson(row) {
         "xp-value": row.xp_value,
         "xp-min-time": row.xp_min_time,
         "cm-collectable-count": row.cm_collectable_count,
-        "collaborators": row.collaborators,
+        "collaborators": TOJSON(row.collaborators),
         "map-mode-type": row.map_mode_type,
         "map-id": row.map_id,
         "map-title": row.map_title,
@@ -346,8 +351,8 @@ function mapCTracksqlToJson(row) {
         "created-at": row.created_at,
         "updated-at": row.updated_at,
         "version": row.version,
-        "title-translations": JSON.parse(row.title_translations),
-        "images": JSON.parse(row.images),
+        "title-translations": TOJSON(row.title_translations),
+        "images": TOJSON(row.images),
         "map-thumb": row.map_thumb,
         "avatar": row.avatar,
         "player-id": row.player_id,
@@ -743,6 +748,40 @@ app.get('/maps/', (req, res) => {
     const limit = parseInt(req.query.limit) || 6;
     const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * limit;
+    let sqlSort = "";
+    let filters = []
+    let filtersP = []
+    filters.push(" AND is_race_allowed = 1");
+    if (req.query['map-difficulty']) {
+        filters.push(`AND map_difficulty = ?`);
+        filtersP.push(parseInt(req.query['map-difficulty']));
+    }
+    if (req.query['map-id']) {
+        filters.push("AND map_id = ?");
+        filtersP.push(req.query['map-id']);
+    }
+    if (req.query.q) {
+        if (req.query.q.startsWith("@")) {
+            filters.push("AND profile_name = ?");
+            filtersP.push(req.query.q.toLowerCase().substring(1));
+        } else {
+            filters.push("AND map_title LIKE ?");
+            filtersP.push(`%${req.query.q}%`);
+        }
+    }
+    if (req.query.sort && req.query.order) {
+        const normalizedSort = req.query.sort.replace(/-/g, '_');
+        const allowedSortFields = ['score', 'rating_count', 'created_at', 'updated_at'];
+        const sortField = allowedSortFields.includes(normalizedSort) ? normalizedSort : 'score';
+
+        const sortOrder = req.query.order?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+        sqlSort = `ORDER BY ${sortField} ${sortOrder}`;
+        filters.push(sqlSort)
+    }
+
+console.log("Final filters:", filters);
+console.log("Final filter parameters:", filtersP);
     db.get(
         `SELECT COUNT(*) as total FROM communitytracks WHERE is_public = 1 AND map_category = 'MapCommon'`,
         [],
@@ -754,11 +793,11 @@ app.get('/maps/', (req, res) => {
             const totalCount = countResult.total;
             const totalPages = Math.ceil(totalCount / limit);
             db.all(
-                `SELECT * 
-                FROM communitytracks 
+                `SELECT *
+                FROM communitytracks
                 WHERE is_public = 1 AND map_category = 'MapCommon'
-                LIMIT ? OFFSET ?`,
-                [limit, offset],
+                ${filters.join(' ')} LIMIT ? OFFSET ? `,
+                [...filtersP, limit, offset],
                 (err, rows) => {
                     if (err) {
                         console.error("Error fetching community tracks:", err);
