@@ -1,6 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('main.db');
-const Tracks = require(path.join(__dirname, 'tracks.json'));
+const Tracks = require('./tracks.json');
 const Ctracks = require('./CtracksC.json')
 
 db.serialize(() => {
@@ -69,10 +69,12 @@ function toJSON(value) {
 
 const full = Ctracks.concat(Tracks)
 
-for (let i = 0; i < full.length; i++) {
-    const track = full[i];
-    const stmt = db.prepare(
-        `INSERT INTO communitytracks (
+const guids = new Set(full.map(t => t.guid));
+console.log("Unique GUIDs:", guids.size);
+console.log("Total tracks:", full.length);
+
+const stmt = db.prepare(
+    `INSERT INTO communitytracks (
             guid,
             root,
             prefs,
@@ -128,78 +130,94 @@ for (let i = 0; i < full.length; i++) {
             full_track_url
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(guid) DO NOTHING;`
-    );
+);
 
-    stmt.run(
-        track.guid,
-        toJSON(track.root),
-        toJSON(track.prefs),
-        track["allow-copy"],
-        track["base-assets-enabled"],
-        toJSON(track["exclusive-by-platform"]),
-        track["is-race-allowed"],
-        track["is-public"],
-        track["is-public-for-drlpilots"],
-        track["is-drl-official"],
-        track["is-featured"],
-        track["is-multigp"],
-        track["is-tryouts"],
-        track["is-virtual-season"],
-        track["map-category"],
-        track["map-difficulty"],
-        track["map-distance"],
-        track["map-dirty"],
-        track["map-lighting"],
-        track["map-laps"],
-        track["map-stats-triangle-count"],
-        track["map-stats-object-count"],
-        toJSON(track["map-asset-layers"]),
-        toJSON(track["map-styles"]),
-        toJSON(track["categories"]),
-        track["prefs-auto-save"],
-        track["rating-count"],
-        track["score"],
-        track["track-id"],
-        track["xp-value"],
-        track["xp-min-time"],
-        track["cm-collectable-count"],
-        toJSON(track["collaborators"]),
-        track["map-mode-type"],
-        track["map-id"],
-        track["map-title"],
-        track["steam-id"],
-        track["created-at"],
-        track["updated-at"],
-        track["version"],
-        toJSON(track["title-translations"]),
-        toJSON(track["images"]),
-        track["map-thumb"],
-        track["avatar"],
-        track["player-id"],
-        track["profile-name"],
-        track["profile-thumb"],
-        track["profile-color"],
-        track["profile-platform"],
-        track["profile-platform-id"],
-        track["flag-url"],
-        track["is-avatar-blocked"],
-        track["full-track-url"]
-    );
-
-    db.run(`INSERT OR IGNORE INTO trackcolab (uid, guid) VALUES (?, ?)`, [track["player-id"], track.guid], function (err) {
-        if (err) {
-            console.error("Error inserting into trackcolab:", err);
-        }
-    });
-    stmt.finalize();
-    for (let i = 0; i < track.collaborators.length; i++) {
-        let collaboratorUid = track.collaborators[i]['player-id'];
-        db.run(`INSERT OR IGNORE INTO trackcolab (uid, guid) VALUES (?, ?)`, [collaboratorUid, track.guid], function (err) {
-            if (err) {
-                console.error("Error inserting into trackcolab:", err);
+db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    for (let i = 0; i < full.length; i++) {
+        const track = full[i];
+        try {
+            stmt.run(
+                track.guid,
+                toJSON(track.root),
+                toJSON(track.prefs),
+                track["allow-copy"],
+                track["base-assets-enabled"],
+                toJSON(track["exclusive-by-platform"]),
+                track["is-race-allowed"],
+                track["is-public"],
+                track["is-public-for-drlpilots"],
+                track["is-drl-official"],
+                track["is-featured"],
+                track["is-multigp"],
+                track["is-tryouts"],
+                track["is-virtual-season"],
+                track["map-category"],
+                track["map-difficulty"],
+                track["map-distance"],
+                track["map-dirty"],
+                track["map-lighting"],
+                track["map-laps"],
+                track["map-stats-triangle-count"],
+                track["map-stats-object-count"],
+                toJSON(track["map-asset-layers"]),
+                toJSON(track["map-styles"]),
+                toJSON(track["categories"]),
+                track["prefs-auto-save"],
+                track["rating-count"],
+                track["score"],
+                track["track-id"],
+                track["xp-value"],
+                track["xp-min-time"],
+                track["cm-collectable-count"],
+                JSON.stringify(track["collaborators"]),
+                track["map-mode-type"],
+                track["map-id"],
+                track["map-title"],
+                track["steam-id"],
+                track["created-at"],
+                track["updated-at"],
+                track["version"],
+                toJSON(track["title-translations"]),
+                toJSON(track["images"]),
+                track["map-thumb"],
+                track["avatar"],
+                track["player-id"],
+                track["profile-name"],
+                track["profile-thumb"],
+                track["profile-color"],
+                track["profile-platform"],
+                track["profile-platform-id"],
+                track["flag-url"],
+                track["is-avatar-blocked"],
+                track["full-track-url"]
+            );
+            db.run(`INSERT OR IGNORE INTO trackcolab (uid, guid) VALUES (?, ?)`, [track["player-id"], track.guid], function (err) {
+                if (err) {
+                    console.error("Error inserting into trackcolab:", err);
+                }
+            });
+            if (Array.isArray(track.collaborators)) {
+                for (let j = 0; j < track.collaborators.length; j++) {
+                    const collaboratorUid = track.collaborators[j]['player-id'];
+                    if (collaboratorUid) {
+                        db.run(
+                            `INSERT OR IGNORE INTO trackcolab (uid, guid) VALUES (?, ?)`,
+                            [collaboratorUid, track.guid]
+                        );
+                    }
+                }
             }
-        });
+            console.log(`Inserted track ${i + 1}/${full.length}: ${track.guid}`);
+        } catch (err) {
+            console.error("Error inserting track:", err);
+        }
+        console.log(JSON.stringify(track["collaborators"]))
     }
 
-    console.log(`Inserted track ${i + 1}/${Ctracks.length}: ${track.guid}`);
-}
+    stmt.finalize();
+
+    db.run("COMMIT");
+});
+
+db.close();
