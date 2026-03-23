@@ -14,12 +14,12 @@
     "is-race-allowed": true,
     "is-public": true,
     "is-public-for-drlpilots": false,
-    "is-drl-official": false,
-    "is-featured": true,
+    "is-drl-official": true,
+    "is-featured": false,
     "is-multigp": false,
     "is-tryouts": false,
     "is-virtual-season": false,
-    "map-category": "MapFeatured",
+    "map-category": "MapCommon",
     "map-difficulty": 3,
     "map-distance": 641.2644,
     "map-dirty": true,
@@ -37,11 +37,7 @@
     "xp-value": 0,
     "xp-min-time": 0,
     "cm-collectable-count": 0,
-    "collaborators": [
-      {
-        "player-id": "b9365d125935475b8327162c66a25e12"
-      }
-    ],
+    "collaborators": [],
     "map-mode-type": "Race",
     "map-id": "MP-0c6",
     "map-title": "AROUND AROUND (BY GYSI)",
