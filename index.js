@@ -962,7 +962,7 @@ app.post('/login', (req, res) => {
             const decodedString = Buffer.from(parsed.token, 'base64').toString('utf8');
             decToken = JSON.parse(decodedString);
 
-            console.log("Dati Login decodificati:", decToken);
+            console.log("Data Login decoded:", decToken);
             if (!decToken.steamId) {
                 throw new Error("SteamId missing in token");
             }
