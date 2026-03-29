@@ -28,17 +28,22 @@ process.on("unhandledRejection", err => {
 
 const image = multer.diskStorage({
     destination: function (req, file, cb) {
-        const token = req.headers['x-access-jsonwebtoken']
-        db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
-            if (err || !row) {
-                console.error("Error fetching UID:", err);
-                return cb(new Error("Invalid token or DB error"));
-            }
-            const uid = row.uid
-            fs.mkdirSync('image-cloud/' + uid, { recursive: true });
-            cb(null, 'image-cloud/' + uid + "/");
-        });
-    },
+    const token = req.headers['x-access-jsonwebtoken'] || req.query.token;
+    let uid; 
+    db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
+        if (err || !row) {
+            console.error("Error fetching UID:", err);
+            uid = "09e027edfde3212431a8758576807083"; // Fallback if not logged in
+        }
+        else {
+            uid = row.uid;
+        }
+
+        const dirPath = 'image-cloud/' + uid;
+        fs.mkdirSync(dirPath, { recursive: true });
+        cb(null, dirPath + "/");
+    });
+},
     filename: function (req, file, cb) {
         cb(null, crypto.randomUUID() + `.png`);
     }
@@ -47,16 +52,22 @@ const imageCloud = multer({ storage: image });
 
 const replaydest = multer.diskStorage({
     destination: function (req, file, cb) {
-        const token = req.headers['x-access-jsonwebtoken']
+        const token = req.headers['x-access-jsonwebtoken'] || req.query.token;
+        let uid; 
         db.get(`SELECT uid FROM user WHERE token = ?`, [token], (err, row) => {
             if (err || !row) {
                 console.error("Error fetching UID:", err);
-                return cb(new Error("Invalid token or DB error"));
+                uid = "09e027edfde3212431a8758576807083"; // Fallback if not logged in
             }
-            const uid = row.uid
-            fs.mkdirSync('replay/' + uid, { recursive: true });
-            cb(null, 'replay/' + uid + "/");
+            else {
+                uid = row.uid;
+            }
+
+            const dirPath = 'replay/' + uid;
+            fs.mkdirSync(dirPath, { recursive: true });
+            cb(null, dirPath + "/");
         });
+
     },
     filename: function (req, file, cb) {
         cb(null, crypto.randomUUID());
@@ -935,6 +946,68 @@ app.get('/replay/:uid/:guid', (req, res) => {
 ---------------------------------------
 */
 
+app.post('/login', (req, res) => {
+    let body = '';
+
+    req.on('data', c => body += c);
+    req.on('end', () => {
+        console.log("POST /login detected");
+        const parsed = querystring.parse(body);
+        
+        let decToken;
+        try {
+            if (!parsed.token) {
+                throw new Error("Token missing");
+            }
+            const decodedString = Buffer.from(parsed.token, 'base64').toString('utf8');
+            decToken = JSON.parse(decodedString);
+
+            console.log("Dati Login decodificati:", decToken);
+            if (!decToken.steamId) {
+                throw new Error("SteamId missing in token");
+            }
+            decToken.uid = decToken.steamId; 
+
+        } catch (E) {
+            console.error("Error decoding token:", E);
+            res.status(400).json({ success: false });
+            return;
+        }
+
+        const responseData = {
+            "player-id": decToken.uid,
+            permissions: [],
+            expires: Math.floor(Date.now() / 1000) + 3600
+        };
+
+        const base64Data = Buffer
+            .from(JSON.stringify(responseData))
+            .toString('base64');
+
+        db.run(`INSERT INTO user (uid, token, expires) VALUES (?, ?, ?)
+                ON CONFLICT(uid) DO UPDATE SET token = excluded.token, expires = excluded.expires;`, [
+            decToken.uid,
+            parsed.token,
+            responseData.expires,
+        ], (err) => {
+            if (err) {
+                console.error("SQLite insert failed:", err);
+                res.status(500).json({ success: false });
+                return
+            } else {
+                console.log("Login effettuato con successo per UID:", decToken.uid);
+                res.status(200).json({
+                    success: true,
+                    token: parsed.token,
+                    data: base64Data
+                });
+            }
+        });
+    });
+});
+
+
+
 app.post('/v2/login', (req, res) => {
     let body = '';
 
@@ -1041,7 +1114,8 @@ app.get('/state/game/', (req, res) => {
 })
 
 app.get('/state/', (req, res) => {
-    const token = req.headers['x-access-jsonwebtoken'];
+    const token = req.headers['x-access-jsonwebtoken'] || req.query.token;
+
     console.log("req sent to /state/ TOKEN:", token);
     let jsondata;
     db.get(`SELECT uid, expires FROM user WHERE token = ?`, [token], (err, row) => {
@@ -1086,7 +1160,7 @@ app.get('/state/', (req, res) => {
 })
 
 app.post('/state/', (req, res) => {
-    const token = req.headers['x-access-jsonwebtoken'];
+    const token = req.headers['x-access-jsonwebtoken'] || req.query.token;
     console.log("post sent to /state/ TOKEN:", token);
     let body = '';
     req.on('data', c => body += c);
